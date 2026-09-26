@@ -2,6 +2,8 @@ import { fileURLToPath } from "node:url";
 import { createAgent, MockComputerController, NativeComputerController } from "./index.js";
 
 const args = process.argv.slice(2);
+const showHistory = args[0] === "--history";
+if (showHistory) args.shift();
 const native = args[0] === "--native";
 if (native) args.shift();
 const aac = args[0] === "--aac";
@@ -16,6 +18,7 @@ agent.subscribe(event => console.log(JSON.stringify(event)));
 try {
   const result = await agent.submit(aac ? { source: "aac", intent: value } : { source: "text", text: value });
   if (controller instanceof MockComputerController) console.log(JSON.stringify({ actions: controller.actions }));
+  if (showHistory) console.log(JSON.stringify({ history: agent.getHistory() }));
   if (!result.success) process.exitCode = 1;
 } finally {
   agent.dispose();

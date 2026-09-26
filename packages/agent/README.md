@@ -276,3 +276,41 @@ to skill effects or executable actions.
 
 The shipped code remains deterministic. AI integration and infrastructure work
 are deferred. Generated files in `dist/` are build artifacts; edit `packages/agent/src`.
+
+## Action history — Person 2 task P2-5
+
+`agent.getHistory()` returns independent copies of the latest 100 completed
+controller attempts, in order. Entries include `id`, `action`, `success`,
+`timestamp`, and `completedAt` (milliseconds since the Unix epoch). A failed
+outcome records what the controller reported; it does not prove an interrupted
+action had no side effects. In-flight actions are absent until they settle.
+
+History is in-memory only. Typed text is replaced with `[redacted]`; URLs retain
+only their HTTP(S) origin, without credentials, paths, query strings, or fragments.
+Raw user input, snapshots, and error text are not retained. History is display-only
+and must never be used to replay actions. There is no unredacted history endpoint.
+
+Pending, cancelled, expired, and rejected approvals are not controller attempts.
+An approved action is recorded once, including controller failure. Unknown inputs
+and busy requests do not add entries. `agent.clearHistory()` clears existing
+entries and suppresses late records from currently running attempts without
+cancelling those actions. `agent.dispose()` clears history and prevents late writes.
+
+The desktop debug view may send these requests without interrupting active work:
+
+```json
+{"type":"get_history","requestId":"history-1"}
+{"type":"clear_history","requestId":"history-2"}
+```
+
+Both respond with `{ "type": "history", "requestId": "...", "entries": [...] }`;
+clearing returns an empty list. No history is emitted automatically on the protocol.
+For a local preview using a mock controller:
+
+```sh
+npm run agent -- --history "Show me dog photos"
+```
+
+Place `--history` before other flags, for example `--history --native --aac OPEN_SCHOOL`.
+See the [Person 2 checklist](../../docs/person-2-progress.md) for implemented,
+unverified, deferred, and optional work from the broader engineering plan.

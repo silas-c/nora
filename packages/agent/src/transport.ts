@@ -1,10 +1,12 @@
 import type { Readable, Writable } from "node:stream";
-import type { Agent, AgentEvent, AgentResult, UserInput } from "../../shared/src/types.js";
+import type { Agent, AgentEvent, AgentHistoryEntry, AgentResult, UserInput } from "../../shared/src/types.js";
 
 export type AgentRequest =
   | { type: "submit"; requestId: string; input: UserInput }
-  | { type: "confirm"; requestId: string; confirmationId: string; approved: boolean };
+  | { type: "confirm"; requestId: string; confirmationId: string; approved: boolean }
+  | { type: "get_history" | "clear_history"; requestId: string };
 export type AgentMessage =
+  | { type: "history"; requestId: string; entries: AgentHistoryEntry[] }
   | { type: "event"; requestId: string; event: AgentEvent }
   | { type: "result"; requestId: string; result: AgentResult }
   | { type: "protocol_error"; requestId: string | null; error: string };
@@ -61,11 +63,16 @@ export function serveAgent(
       if (seen.has(id)) { error(id, "requestId has already been used in this session."); return; }
       if (seen.size >= 10_000) { error(id, "Session request limit reached. Reconnect to continue."); return; }
       seen.add(id);
+      if (request.type === "get_history" || request.type === "clear_history") {
+        if (request.type === "clear_history") agent.clearHistory();
+        send({ type: "history", requestId: id, entries: agent.getHistory() });
+        return;
+      }
       const submit = request.type === "submit" && isInput(request.input);
       const confirm = request.type === "confirm" && typeof request.confirmationId === "string"
         && request.confirmationId.length > 0 && request.confirmationId.length <= 128 && typeof request.approved === "boolean";
       if (!submit && !confirm) {
-        error(id, "Expected a submit input or a confirm message with confirmationId and boolean approved."); return;
+        error(id, "Expected submit, confirm, get_history, or clear_history with valid fields."); return;
       }
       if (active) {
         send({ type: "result", requestId: id, result: { success: false, error: "An action is already running. Please wait." } });

@@ -54,7 +54,18 @@ export type AgentResult =
   | { success: false; error: string; requiresConfirmation?: false }
   | PendingConfirmation;
 
+export interface AgentHistoryEntry {
+  id: number;
+  /** Redacted, display-only action summary. Never use it to replay actions. */
+  action: ComputerAction;
+  success: boolean;
+  timestamp: number;
+  completedAt: number;
+}
+
 export interface Agent {
+  getHistory(): AgentHistoryEntry[];
+  clearHistory(): void;
   /** Cancels pending work; the session owner also closes its controller. */
   dispose(): void;
   submit(input: UserInput): Promise<AgentResult>;

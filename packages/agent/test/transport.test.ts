@@ -158,3 +158,21 @@ test("malformed approvals and disconnect never execute a pending action", async 
   assert.equal((await s.agent.confirm(id, true)).success, false);
   assert.equal(computer.actions.length, 0);
 });
+
+test("UI can request and clear redacted history without rerunning an action", async () => {
+  const computer = new MockComputerController();
+  const s = session(computer);
+  s.send({ type: "submit", requestId: "action", input: { source: "text", text: "Show me dog photos" } });
+  await tick();
+  s.send({ type: "get_history", requestId: "history" });
+  await tick();
+  const history = s.messages.at(-1);
+  assert.ok(history?.type === "history");
+  assert.deepEqual(history.entries[0].action, { type: "open_url", url: "https://www.google.com", browser: "Microsoft Edge" });
+  assert.equal(computer.actions.length, 1);
+  s.send({ type: "clear_history", requestId: "clear" }); await tick();
+  assert.deepEqual(s.messages.at(-1), { type: "history", requestId: "clear", entries: [] });
+  assert.equal(computer.actions.length, 1);
+  s.input.end(); await s.done;
+  assert.deepEqual(s.agent.getHistory(), []);
+});

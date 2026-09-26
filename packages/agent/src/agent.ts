@@ -3,6 +3,7 @@ import { routeIntent } from "./router.js";
 import { skills, type Skill } from "./skills.js";
 import { navigateCourses, type NavigationOptions } from "./navigation.js";
 import { ActionGate } from "./safety.js";
+import { ActionHistory } from "./history.js";
 
 export interface AgentOptions extends Pick<NavigationOptions, "wait"> {
   /** Trusted test/embedding hook; never accepted in the JSON-lines protocol. */
@@ -13,6 +14,11 @@ export interface AgentOptions extends Pick<NavigationOptions, "wait"> {
 
 export function createAgent(computer: ComputerController, options: AgentOptions = {}): Agent {
   const lifecycle = new AbortController();
+  const history = new ActionHistory(options.now);
+  const recordedComputer: ComputerController = {
+    getState: () => computer.getState(),
+    execute: action => history.record(action, () => computer.execute(action)),
+  };
   const listeners = new Set<(event: AgentEvent) => void>();
   let busy = false;
   function emit(event: AgentEvent): void {
@@ -21,7 +27,7 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
       try { listener(structuredClone(event)); } catch { /* One UI subscriber must not break execution. */ }
     }
   }
-  const gate = new ActionGate(computer, emit, lifecycle.signal, options.now);
+  const gate = new ActionGate(recordedComputer, emit, lifecycle.signal, options.now);
   function finish(result: AgentResult): AgentResult {
     if (result.success) emit({ type: "done", message: result.message });
     else if (!result.requiresConfirmation) emit({ type: "error", message: result.error });
@@ -31,7 +37,9 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
   const closed = (): AgentResult => ({ success: false, error: "Agent session is closed." });
   const occupied = (): AgentResult => ({ success: false, error: "An action is already running. Please wait." });
   return {
-    dispose() { lifecycle.abort(); gate.dispose(); listeners.clear(); },
+    getHistory: () => history.read(),
+    clearHistory: () => history.clear(),
+    dispose() { lifecycle.abort(); gate.dispose(); history.dispose(); listeners.clear(); },
     subscribe(callback) {
       listeners.add(callback);
       return () => { listeners.delete(callback); };
@@ -53,7 +61,7 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
         emit({ type: "thinking" });
         const intent = routeIntent(input);
         if (intent === "OPEN_COURSES") {
-          return finish(await navigateCourses(computer, async action => {
+          return finish(await navigateCourses(recordedComputer, async action => {
             const result = await gate.run({ action, effect: "navigation", actingMessage: "", doneMessage: "Navigation action accepted." });
             if (result.success) return { success: true };
             return { success: false, error: result.requiresConfirmation ? "Navigation requires confirmation." : result.error } satisfies ActionResult;
