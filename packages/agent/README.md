@@ -120,11 +120,11 @@ independent copies. It records actions but does not simulate UI transitions.
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.
-- Complete the UI connection and add confirmation handling.
+- Complete the UI connection, including its Cancel/Confirm controls.
 - Consider Jev only after deterministic navigation and safety are reliable.
 
-The shared `confirmation_required` event is reserved; the current agent does not
-implement a confirmation workflow. No model SDK or API key is needed yet.
+The agent supports confirmation through `agent.confirm()` and the desktop transport.
+No model SDK or API key is needed.
 
 ## Desktop transport — issue #6
 
@@ -199,3 +199,80 @@ function against a synthetic page; it does not establish that a particular Canva
 account exposes the same controls. Verify the live command manually before closing
 #7. Mock fixtures contain no account data. Call `agent.dispose()` on session
 shutdown to stop observation loops, then close the native controller.
+
+## Confirmations — agent side of issue #9
+
+Every action emitted by the agent passes one gate. Trusted skill implementation
+metadata describes the intended effect: known navigation and zoom are safe;
+submission, editing, and unknown effects are sensitive; deletion effects are
+destructive. Both sensitive and destructive actions pause. A low-level `click`
+is not automatically safe, and clients cannot submit action/risk metadata over
+stdin to bypass the router. No real deletion action or user-facing deletion route
+has been added.
+
+`AgentResult` now has three outcomes:
+
+- `{ success: true, message? }`: completed (or explicitly cancelled).
+- `{ success: false, error, requiresConfirmation?: false }`: failed.
+- `{ success: false, requiresConfirmation: true, confirmationId, message }`: paused.
+
+Handle the pending branch before reading `error`. A pending result is not an
+execution failure or permission to proceed. The corresponding event includes the
+exact frozen `action`, `risk`, `expiresAt` timestamp, message, and confirmation ID.
+The UI must display those details and explicit Cancel/Confirm controls, then send:
+
+```json
+{"type":"confirm","requestId":"decision-1","confirmationId":"ID_FROM_PROMPT","approved":false}
+```
+
+Use `approved:true` only for explicit confirmation, and give the decision its own
+unique request ID. `agent.confirm(id, approved)` is the equivalent in-process API.
+Each ID expires after 60 seconds and is consumed before approved execution begins.
+Cancellation, expiry, disconnect, changed context, and reused IDs never execute.
+Submissions are rejected while an approval is pending. A failed approved action
+cannot be retried with the same ID.
+
+`confirmation_resolved` events identify the confirmation and a reason: `approved`,
+`cancelled`, `expired`, or `invalidated`. The transport associates these with the
+original submission's request ID, including asynchronous expiry. Execution events
+and the decision result carry the decision request ID. Remove the prompt when
+resolved; wait for the decision result before claiming execution succeeded.
+On disconnect, dismiss all prompts locally; the server cancels their approvals.
+
+Targeted approvals require a complete snapshot and validate app, window, ID,
+label, role, enabled state, and actions again before execution. The current Swift
+helper changes IDs on every snapshot, so native targeted approvals conservatively
+invalidate rather than guess a replacement target. Untargeted sensitive keyboard
+or text edits are refused because their focus cannot be bound safely with the
+current contract. These limitations do not affect known safe navigation. Extend
+stable target validation with Silas before exposing sensitive native editing.
+
+Mock-only demonstration; no helper, Photos library, or filesystem changes:
+
+```sh
+npm run build
+node examples/confirmation-demo.mjs
+```
+
+The example injects a simulated destructive skill into a mock controller. Verify
+zero actions before approval, zero after cancellation, one after confirmation,
+and rejection when the ID is reused. Production `server.js` does not expose this
+injected skill. The UI teammate can use the same trusted `resolveSkill` test hook
+with `serveAgent()` for interface development; never map untrusted request fields
+to skill effects or executable actions.
+
+## Delivery status
+
+- #2: implemented, tested, and committed; Canvas opening was verified manually.
+- #6: native adapter, persistent transport, protocol documentation, and runnable
+  client are implemented. Actual School tile/text UI integration remains with the
+  interface teammate; the issue is not complete until both UI paths pass.
+- #7: deterministic navigation and synthetic fixtures pass automated checks. The
+  native localhost run from Codex reached the helper but failed with Accessibility
+  permission denied. Run the documented smoke command from an authorized terminal,
+  then verify the real Canvas account manually before considering the issue done.
+- #9: agent gate and transport are implemented and tested with simulated actions.
+  The teammate-owned confirmation UI and full UI integration are still pending.
+
+The shipped code remains deterministic. AI integration and infrastructure work
+are deferred. Generated files in `dist/` are build artifacts; edit `packages/agent/src`.

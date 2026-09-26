@@ -36,21 +36,28 @@ export interface ComputerController {
   execute(action: ComputerAction): Promise<ActionResult>;
 }
 
+export type RiskLevel = "safe" | "sensitive" | "destructive";
+
 export type AgentEvent =
   | { type: "listening" }
   | { type: "thinking"; message?: string }
   | { type: "acting"; message: string }
-  | { type: "confirmation_required"; message: string; confirmationId: string }
+  | { type: "confirmation_required"; message: string; confirmationId: string; action: ComputerAction; risk: RiskLevel; expiresAt: number }
+  | { type: "confirmation_resolved"; confirmationId: string; reason: "approved" | "cancelled" | "expired" | "invalidated" }
   | { type: "done"; message?: string }
   | { type: "error"; message: string };
 
+export type PendingConfirmation = { success: false; requiresConfirmation: true; confirmationId: string; message: string };
+
 export type AgentResult =
   | { success: true; message?: string }
-  | { success: false; error: string };
+  | { success: false; error: string; requiresConfirmation?: false }
+  | PendingConfirmation;
 
 export interface Agent {
   /** Cancels pending work; the session owner also closes its controller. */
   dispose(): void;
   submit(input: UserInput): Promise<AgentResult>;
+  confirm(confirmationId: string, approved: boolean): Promise<AgentResult>;
   subscribe(callback: (event: AgentEvent) => void): () => void;
 }

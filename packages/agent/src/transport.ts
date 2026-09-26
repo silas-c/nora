@@ -1,7 +1,9 @@
 import type { Readable, Writable } from "node:stream";
 import type { Agent, AgentEvent, AgentResult, UserInput } from "../../shared/src/types.js";
 
-export type AgentRequest = { type: "submit"; requestId: string; input: UserInput };
+export type AgentRequest =
+  | { type: "submit"; requestId: string; input: UserInput }
+  | { type: "confirm"; requestId: string; confirmationId: string; approved: boolean };
 export type AgentMessage =
   | { type: "event"; requestId: string; event: AgentEvent }
   | { type: "result"; requestId: string; result: AgentResult }
@@ -24,17 +26,22 @@ export function serveAgent(
     let buffer = "";
     let closing = false;
     const seen = new Set<string>();
+    const confirmationOwners = new Map<string, string>();
     const send = (message: AgentMessage) => {
       if (!closing && !output.destroyed) output.write(JSON.stringify(message) + "\n");
     };
     const unsubscribe = agent.subscribe(event => {
-      if (active) send({ type: "event", requestId: active, event });
+      if (event.type === "confirmation_required" && active) confirmationOwners.set(event.confirmationId, active);
+      const owner = event.type === "confirmation_resolved" ? confirmationOwners.get(event.confirmationId) ?? active : active;
+      if (owner) send({ type: "event", requestId: owner, event });
+      if (event.type === "confirmation_resolved") confirmationOwners.delete(event.confirmationId);
     });
     const finish = async () => {
       if (closing) return;
       closing = true;
       unsubscribe();
       agent.dispose();
+      confirmationOwners.clear();
       input.off("data", onData);
       input.pause();
       try { await close(); } catch { /* Connection is already closed. */ } finally { resolve(); }
@@ -54,8 +61,11 @@ export function serveAgent(
       if (seen.has(id)) { error(id, "requestId has already been used in this session."); return; }
       if (seen.size >= 10_000) { error(id, "Session request limit reached. Reconnect to continue."); return; }
       seen.add(id);
-      if (request.type !== "submit" || !isInput(request.input)) {
-        error(id, "Expected type submit and a valid text, voice, or AAC input."); return;
+      const submit = request.type === "submit" && isInput(request.input);
+      const confirm = request.type === "confirm" && typeof request.confirmationId === "string"
+        && request.confirmationId.length > 0 && request.confirmationId.length <= 128 && typeof request.approved === "boolean";
+      if (!submit && !confirm) {
+        error(id, "Expected a submit input or a confirm message with confirmationId and boolean approved."); return;
       }
       if (active) {
         send({ type: "result", requestId: id, result: { success: false, error: "An action is already running. Please wait." } });
@@ -63,7 +73,9 @@ export function serveAgent(
       }
       active = id;
       try {
-        const result = await agent.submit(request.input);
+        const result = submit
+          ? await agent.submit(request.input as UserInput)
+          : await agent.confirm(request.confirmationId as string, request.approved as boolean);
         send({ type: "result", requestId: id, result });
       } catch {
         send({ type: "result", requestId: id, result: { success: false, error: "Agent request failed." } });

@@ -1,5 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
-import type { ActionResult, AgentEvent, AgentResult, ComputerAction, ComputerController } from "../../shared/src/types.js";
+import type { ActionResult, AgentEvent, ComputerAction, ComputerController } from "../../shared/src/types.js";
 
 export const CANVAS_URL = "https://canvas.temple.edu";
 export const normalizeLabel = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -16,8 +16,8 @@ export async function navigateCourses(
   emit: (event: AgentEvent) => void,
   signal: AbortSignal,
   options: NavigationOptions = {},
-): Promise<AgentResult> {
-  const fail = (error: string): AgentResult => ({ success: false, error });
+): Promise<ActionResult & { message?: string }> {
+  const fail = (error: string): ActionResult => ({ success: false, error });
   const wait = options.wait ?? ((ms, signal) => delay(ms, undefined, { signal }));
   let clicked = false;
   let allCoursesBeforeClick = false;

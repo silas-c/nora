@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PassThrough } from "node:stream";
+import type { AgentOptions } from "../src/agent.js";
 import { createAgent, MockComputerController } from "../src/index.js";
 import { serveAgent, type AgentMessage } from "../src/transport.js";
 import type { ActionResult, ComputerController } from "../../shared/src/types.js";
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function session(controller: ComputerController = new MockComputerController()) {
+function session(controller: ComputerController = new MockComputerController(), options: AgentOptions = {}) {
   const input = new PassThrough();
   const output = new PassThrough();
   const messages: AgentMessage[] = [];
@@ -14,9 +15,10 @@ function session(controller: ComputerController = new MockComputerController()) 
   output.on("data", chunk => {
     for (const line of String(chunk).trim().split("\n")) messages.push(JSON.parse(line));
   });
-  const done = serveAgent(input, output, createAgent(controller), async () => { closes++; });
+  const agent = createAgent(controller, options);
+  const done = serveAgent(input, output, agent, async () => { closes++; });
   const send = (request: unknown) => input.write(JSON.stringify(request) + "\n");
-  return { input, output, messages, done, send, closes: () => closes };
+  return { agent, input, output, messages, done, send, closes: () => closes };
 }
 
 test("one UI session routes text and AAC results and events by request ID", async () => {
@@ -89,4 +91,70 @@ test("disconnect during a request closes resources and suppresses late output", 
   finish({ success: true }); await tick();
   assert.equal(s.messages.length, count);
   assert.equal(s.closes(), 1);
+});
+
+const simulation: AgentOptions = {
+  resolveSkill: () => ({
+    action: { type: "launch_app", app: "Mock deletion executor" }, effect: "deletion",
+    actingMessage: "Simulate deleting a disposable item", doneMessage: "Simulation completed.",
+  }),
+};
+function confirmationId(messages: AgentMessage[]): string {
+  const prompt = messages.find(m => m.type === "event" && m.event.type === "confirmation_required");
+  assert.ok(prompt?.type === "event" && prompt.event.type === "confirmation_required");
+  return prompt.event.confirmationId;
+}
+
+test("transport carries pending results, approval/cancel, and single-use IDs", async () => {
+  for (const approved of [true, false]) {
+    const computer = new MockComputerController();
+    const s = session(computer, simulation);
+    s.send({ type: "submit", requestId: "request", input: { source: "aac", intent: "TEST_ONLY_DELETE" } });
+    await tick();
+    const id = confirmationId(s.messages);
+    const initial = s.messages.at(-1);
+    assert.ok(initial?.type === "result" && !initial.result.success && initial.result.requiresConfirmation);
+    assert.equal(computer.actions.length, 0);
+    s.send({ type: "confirm", requestId: "decision", confirmationId: id, approved });
+    await tick();
+    const result = s.messages.at(-1);
+    assert.ok(result?.type === "result" && result.requestId === "decision" && result.result.success);
+    assert.equal(computer.actions.length, approved ? 1 : 0);
+    s.send({ type: "confirm", requestId: "replay", confirmationId: id, approved: true });
+    await tick();
+    const replay = s.messages.at(-1);
+    assert.ok(replay?.type === "result" && !replay.result.success);
+    assert.equal(computer.actions.length, approved ? 1 : 0);
+    s.input.end(); await s.done;
+  }
+});
+
+test("expiration resolves the original prompt even when another request triggers the clock check", async () => {
+  let now = 0;
+  const computer = new MockComputerController();
+  const s = session(computer, { ...simulation, now: () => now });
+  s.send({ type: "submit", requestId: "original", input: { source: "aac", intent: "TEST_ONLY_DELETE" } });
+  await tick();
+  const id = confirmationId(s.messages);
+  now = 60_000;
+  s.send({ type: "confirm", requestId: "late", confirmationId: id, approved: true });
+  await tick();
+  const expiry = s.messages.find(m => m.type === "event" && m.event.type === "confirmation_resolved");
+  assert.ok(expiry?.type === "event" && expiry.requestId === "original" && expiry.event.type === "confirmation_resolved" && expiry.event.reason === "expired");
+  assert.equal(computer.actions.length, 0);
+  s.input.end(); await s.done;
+});
+
+test("malformed approvals and disconnect never execute a pending action", async () => {
+  const computer = new MockComputerController();
+  const s = session(computer, simulation);
+  s.send({ type: "submit", requestId: "original", input: { source: "aac", intent: "TEST_ONLY_DELETE" } });
+  await tick();
+  const id = confirmationId(s.messages);
+  s.send({ type: "confirm", requestId: "invalid", confirmationId: id, approved: "true" });
+  await tick();
+  assert.equal(s.messages.at(-1)?.type, "protocol_error");
+  s.input.end(); await s.done;
+  assert.equal((await s.agent.confirm(id, true)).success, false);
+  assert.equal(computer.actions.length, 0);
 });
