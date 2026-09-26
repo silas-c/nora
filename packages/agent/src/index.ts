@@ -6,3 +6,14 @@ export { serveAgent } from "./transport.js";
 export type { AgentRequest, AgentMessage } from "./transport.js";
 export type { AgentOptions } from "./agent.js";
 export { CanvasMockComputerController } from "./canvas-mock-controller.js";
+export { BoundedJevChooser, JevDecisionError, prepareJevDecision } from "./jev.js";
+export type {
+  JevDecision,
+  JevDecisionClient,
+  JevDecisionInput,
+  JevDecisionRequest,
+  NextActionChooser,
+  PreparedJevDecision,
+} from "./jev.js";
+export { TypeSafeJevClient } from "./typesafe-jev-client.js";
+export type { TypeSafeJevClientOptions } from "./typesafe-jev-client.js";

@@ -51,3 +51,6 @@ printf '%s\n' '{"type":"open_url","url":"ftp://example.com"}' | swift run mac-he
 This should return a JSON error about requiring an `http` or `https` URL.
 
 The [LICENSE](LICENSE) reserves rights in the project materials. Team members authorized by Silas Carvalho may work on the project for development and hackathon presentation.
+
+An optional bounded Jev adapter is under development in issues #15–#17. It is not
+part of the normal deterministic routes and does not execute native actions yet.

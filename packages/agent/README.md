@@ -117,15 +117,43 @@ resuming navigation. Ordinary helper errors do not end the session.
 `MockComputerController(result?, state?)` accepts a custom snapshot and returns
 independent copies. It records actions but does not simulate UI transitions.
 
+## Jev bounded-decision foundation — issue #15
+
+The optional Jev path is deliberately narrower than the deterministic router. Nora
+constructs a finite list of enabled, labeled `AXPress` controls and three status
+choices (`done`, `ask_user`, and `blocked`). Jev selects one opaque option; native
+element IDs remain local. Nora validates the full probability set, enforces an
+85% confidence threshold, and maps a valid choice back to one frozen local action.
+Incomplete snapshots, missing Accessibility permission, unknown choices, malformed
+probabilities, low confidence, and cancellation all fail closed.
+
+The SDK reads `TYPESAFE_API_KEY` from the environment. Never commit a key. If a key
+has appeared in a screenshot, chat, shell history, or log, revoke it and use a new
+one. To exercise the real API with synthetic state only:
+
+```sh
+cp .env.example .env.local
+# Put a newly rotated key in .env.local, then:
+node --env-file=.env.local dist/agent/src/jev-smoke.js
+```
+
+Run `npm run build` first. A successful response prints JSON containing
+`"synthetic":true` and `"executed":false`; the smoke command never invokes a
+controller. The real bounded computer-use loop is tracked in #16. Do not connect a
+Jev-selected action to the native helper until #17 provides stable target
+revalidation across snapshots.
+
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.
 - Complete the teammate-owned UI connection, including its Cancel/Confirm controls,
   using the production and mock-only server commands below.
-- Consider Jev only after deterministic navigation and safety are reliable.
+- Complete the mock-only bounded Jev loop in #16, then coordinate stable native
+  target revalidation with Silas under #17.
 
 The agent supports confirmation through `agent.confirm()` and the desktop transport.
-No model SDK or API key is needed.
+The normal router, server, and deterministic skills do not construct the Jev client
+and need no model SDK configuration or API key.
 
 ## Desktop transport — issue #6
 
@@ -312,8 +340,9 @@ Never map untrusted request fields to skill effects or executable actions.
   A separate mock-only JSON-lines server is available for the teammate-owned
   Cancel/Confirm UI. Full UI acceptance remains pending until that UI is present.
 
-The shipped code remains deterministic. AI integration and infrastructure work
-are deferred. Generated files in `dist/` are build artifacts; edit `packages/agent/src`.
+The shipped agent routes remain deterministic. The bounded Jev adapter is currently
+exercised only by tests and the non-executing synthetic smoke entry point. Generated
+files in `dist/` are build artifacts; edit `packages/agent/src`.
 
 ## Action history — Person 2 task P2-5
 

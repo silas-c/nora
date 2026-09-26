@@ -11,7 +11,8 @@
     "test": "npm run build && node --test dist/agent/test/*.test.js",
     "agent": "npm run build && node dist/agent/src/cli.js",
     "agent:server": "node dist/agent/src/server.js",
-    "agent:confirmation-demo-server": "node dist/agent/src/confirmation-demo-server.js"
+    "agent:confirmation-demo-server": "node dist/agent/src/confirmation-demo-server.js",
+    "jev:smoke": "npm run build && node dist/agent/src/jev-smoke.js"
   },
   "devDependencies": {
     "@types/node": "22.19.0",
