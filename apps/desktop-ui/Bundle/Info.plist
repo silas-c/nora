@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.owlhacks.nora</string>
+	<key>CFBundleName</key>
+	<string>Nora</string>
+	<key>CFBundleDisplayName</key>
+	<string>Nora</string>
+	<key>CFBundleExecutable</key>
+	<string>Nora</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nora listens only after you press Speak, so you can say what you want to do.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>When no ElevenLabs key is set, Nora turns what you say into text on this Mac.</string>
+	<key>NoraRepoRoot</key>
+	<string>__NORA_REPO_ROOT__</string>
+</dict>
+</plist>
