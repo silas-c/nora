@@ -8,7 +8,10 @@
     "outDir": "dist",
     "declaration": true,
     "noEmitOnError": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "resolveJsonModule": true
   },
-  "include": ["packages/**/*.ts"]
+  "include": [
+    "packages/**/*.ts"
+  ]
 }

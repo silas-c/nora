@@ -21,7 +21,7 @@ be that terminal. The future overlay must restore focus to the intended app.
 
 ## Run from the repository root
 
-Install Node.js with npm, then:
+Use Node.js 22 or newer with npm, then:
 
 ```sh
 npm ci
@@ -314,3 +314,25 @@ npm run agent -- --history "Show me dog photos"
 Place `--history` before other flags, for example `--history --native --aac OPEN_SCHOOL`.
 See the [Person 2 checklist](../../docs/person-2-progress.md) for implemented,
 unverified, deferred, and optional work from the broader engineering plan.
+
+## Repeatable mock Courses workflow — Person 2 tasks P2-1 / P2-2
+
+The CLI and server default to `CanvasMockComputerController`, which uses the
+synthetic dashboard, Courses, and login fixtures. Opening Canvas resets the mock
+dashboard; a valid Courses click reveals All Courses. Every snapshot replaces
+its element IDs, and stale IDs fail, matching the native session constraint.
+
+```sh
+npm run agent -- --history "Open Canvas and go to Courses"
+```
+
+Expect `thinking`, two `acting` events, `done`, and history containing one URL-open
+and one click. This command does not open a browser or require Accessibility
+permission. It proves routing and state transitions against fixtures, not live
+Canvas behavior. The same mock is available through `agent:server`. Other existing
+mock skills still record actions; only Canvas navigation has simulated UI changes.
+
+For a login/missing-control scenario, use
+`new CanvasMockComputerController("login")`; the agent must return a sign-in/help
+message without clicking. The basic `MockComputerController(result?, state?)`
+remains available for custom static state and failure tests.

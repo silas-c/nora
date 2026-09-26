@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { createAgent, MockComputerController, NativeComputerController } from "./index.js";
+import { createAgent, MockComputerController, CanvasMockComputerController, NativeComputerController } from "./index.js";
 
 const args = process.argv.slice(2);
 const showHistory = args[0] === "--history";
@@ -11,7 +11,7 @@ if (aac) args.shift();
 const value = args.join(" ") || (aac ? "OPEN_SCHOOL" : "Open Canvas");
 const controller = native
   ? new NativeComputerController(fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url)))
-  : new MockComputerController();
+  : new CanvasMockComputerController();
 console.log(native ? "Native mode: actions run on this Mac." : "Mock mode: no computer actions will run.");
 const agent = createAgent(controller);
 agent.subscribe(event => console.log(JSON.stringify(event)));

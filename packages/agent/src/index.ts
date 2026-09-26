@@ -5,3 +5,4 @@ export { routeIntent } from "./router.js";
 export { serveAgent } from "./transport.js";
 export type { AgentRequest, AgentMessage } from "./transport.js";
 export type { AgentOptions } from "./agent.js";
+export { CanvasMockComputerController } from "./canvas-mock-controller.js";

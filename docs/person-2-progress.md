@@ -19,7 +19,7 @@ GitHub issue has passed acceptance. Continue using deterministic behavior first.
 
 | Task | Status and boundary |
 | --- | --- |
-| P2-1: Mock controller | Implemented; injectable static snapshots and navigation scenario tests. No native helper required for tests. |
+| P2-1: Mock controller | Implemented; basic injectable snapshots plus a fixture-backed Canvas state machine used by the CLI/server. Models successful Courses navigation, login, and stale IDs without a native helper. |
 | P2-2: Intent router | Implemented for Canvas/Courses, public dog images, known app launches, and zoom. Generic OPEN_APP/OPEN_WEBSITE routing, volume, COMPUTER_USE, and REASON routes remain future work. Unknown requests fail without executing. |
 | P2-3: Skill registry | Implemented as a typed deterministic registry plus trusted injection for mock tests. OPEN_CANVAS and ZOOM_IN work; known app launches cover Edge, Finder, and Photos. This is not a generalized natural-language skill matcher. |
 | P2-4: Jev / chooseNextAction | **Not implemented.** Deferred by Daniel's deterministic-first decision until native navigation and confirmations are reliable. No SDK, model calls, or credentials are currently used. |

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { createAgent, MockComputerController, NativeComputerController } from "./index.js";
+import { createAgent, MockComputerController, CanvasMockComputerController, NativeComputerController } from "./index.js";
 import { serveAgent } from "./transport.js";
 
 const args = process.argv.slice(2);
@@ -10,7 +10,7 @@ if (args.some(arg => arg !== "--native")) {
   const native = args.includes("--native");
   const controller = native
     ? new NativeComputerController(fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url)))
-    : new MockComputerController();
+    : new CanvasMockComputerController();
   const agent = createAgent(controller);
   const close = async () => {
     if (controller instanceof NativeComputerController) await controller.close();
