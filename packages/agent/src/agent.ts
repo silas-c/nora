@@ -27,7 +27,7 @@ export function createAgent(computer: ComputerController): Agent {
       try {
         emit({ type: "thinking" });
         const intent = routeIntent(input);
-        if (intent === "UNKNOWN") return fail('Try “Open Canvas” or select School.');
+        if (intent === "UNKNOWN") return fail('Try “Open Canvas”, “Show me dog photos”, or “Make text bigger”.');
         const skill = skills[intent];
         emit({ type: "acting", message: skill.actingMessage });
         const result = await computer.execute(structuredClone(skill.action));
