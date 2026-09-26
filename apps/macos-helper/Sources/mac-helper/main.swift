@@ -6,6 +6,10 @@ struct Request: Decodable {
     let url: String?
     let browser: String?
     let app: String?
+    let target: String?
+    let text: String?
+    let key: String?
+    let modifiers: [String]?
 }
 
 struct Response: Encodable {
@@ -97,6 +101,37 @@ func runOpen(_ arguments: [String]) -> Response {
         } catch {
             return Response(success: false, error: error.localizedDescription,
                             activeApp: app.localizedName, accessibilityTrusted: AXIsProcessTrusted())
+        }
+
+    case "click":
+        guard let target = request.target else { return .failure("click requires a target ID") }
+        do {
+            try snapshotReader.click(target)
+            return .ok
+        } catch {
+            return .failure(error.localizedDescription)
+        }
+
+    case "type_text":
+        guard let text = request.text else { return .failure("type_text requires text") }
+        do {
+            if let target = request.target {
+                try snapshotReader.setText(text, in: target)
+            } else {
+                try typeFocusedText(text)
+            }
+            return .ok
+        } catch {
+            return .failure(error.localizedDescription)
+        }
+
+    case "keypress":
+        guard let key = request.key else { return .failure("keypress requires a key") }
+        do {
+            try pressKey(key, modifiers: request.modifiers ?? [])
+            return .ok
+        } catch {
+            return .failure(error.localizedDescription)
         }
 
     default:

@@ -33,13 +33,23 @@ enum SnapshotError: LocalizedError {
     }
 }
 
+struct ControlError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
 final class SnapshotReader {
     private(set) var elementsByID: [String: AXUIElement] = [:]
     private var enhancedApp: AXUIElement?
     private var enhancedPID: pid_t?
+    private var snapshotPID: pid_t?
+    private var snapshotWindowTitle: String?
+    private var nextElementID = 1
 
     func read(_ app: NSRunningApplication) throws -> ComputerSnapshot {
         elementsByID.removeAll()
+        snapshotPID = nil
+        snapshotWindowTitle = nil
         guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
@@ -55,7 +65,11 @@ final class SnapshotReader {
         let deadline = Date().addingTimeInterval(isEdge ? 3 : 0)
         while true {
             let (snapshot, hasWebArea) = try readOnce(app, appElement)
-            if !isEdge || hasWebArea { return snapshot }
+            if !isEdge || hasWebArea {
+                snapshotPID = app.processIdentifier
+                snapshotWindowTitle = snapshot.activeWindow
+                return snapshot
+            }
             if Date() >= deadline {
                 elementsByID.removeAll()
                 throw SnapshotError.webContentUnavailable
@@ -70,6 +84,62 @@ final class SnapshotReader {
         }
         enhancedApp = nil
         enhancedPID = nil
+    }
+
+    func click(_ id: String) throws {
+        let element = try target(id)
+        let role: String = attribute(element, kAXRoleAttribute) ?? ""
+        if ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"].contains(role),
+           AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success {
+            return
+        }
+        var names: CFArray?
+        guard AXUIElementCopyActionNames(element, &names) == .success,
+              (names as? [String])?.contains("AXPress") == true else {
+            throw ControlError(message: "Target \(id) does not support clicking")
+        }
+        let status = AXUIElementPerformAction(element, kAXPressAction as CFString)
+        guard status == .success else {
+            throw ControlError(message: "Could not click \(id) (Accessibility error \(status.rawValue))")
+        }
+    }
+
+    func setText(_ text: String, in id: String) throws {
+        let element = try target(id)
+        let role: String = attribute(element, kAXRoleAttribute) ?? ""
+        guard ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"].contains(role) else {
+            throw ControlError(message: "Target \(id) is not a text input")
+        }
+        var settable = DarwinBoolean(false)
+        guard AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success,
+              settable.boolValue else {
+            throw ControlError(message: "Target \(id) does not allow setting text")
+        }
+        let status = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFString)
+        guard status == .success else {
+            throw ControlError(message: "Could not set text in \(id) (Accessibility error \(status.rawValue))")
+        }
+    }
+
+    private func target(_ id: String) throws -> AXUIElement {
+        guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier == snapshotPID,
+              let element = elementsByID[id] else {
+            throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
+        }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        guard let window: AXUIElement = attribute(appElement, kAXFocusedWindowAttribute)
+                ?? attribute(appElement, kAXMainWindowAttribute) else {
+            throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
+        }
+        let currentTitle: String? = attribute(window, kAXTitleAttribute)
+        guard currentTitle == snapshotWindowTitle else {
+            throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
+        }
+        let enabled: Bool = attribute(element, kAXEnabledAttribute) ?? true
+        guard enabled else { throw ControlError(message: "Target \(id) is disabled") }
+        return element
     }
 
     private func readOnce(_ app: NSRunningApplication, _ appElement: AXUIElement) throws -> (ComputerSnapshot, Bool) {
@@ -108,7 +178,8 @@ final class SnapshotReader {
                 let linkValue: String? = role == "AXLink" ? attribute(element, kAXValueAttribute) : nil
                 let label = [title, description, linkValue].compactMap { $0 }.first { !$0.isEmpty }
                 let enabled: Bool = attribute(element, kAXEnabledAttribute) ?? true
-                let id = "e\(elements.count + 1)"
+                let id = "e\(nextElementID)"
+                nextElementID += 1
                 elementsByID[id] = element
                 elements.append(ElementSnapshot(id: id, role: role, label: label, enabled: enabled, actions: actions))
             }
