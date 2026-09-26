@@ -5,7 +5,7 @@ Nora is a macOS accessibility layer that turns voice, text, and AAC inputs into 
 ## Team starting points
 
 - **macOS controller (Silas):** maintain `apps/macos-helper`, which now provides app launch/focus, URL opening, accessibility snapshots, click, text, keypress, and scroll actions.
-- **Agent:** use the types in `packages/shared/src/types.ts` to route “Open Canvas” to `open_url`. Start with a mock controller, then connect to the Swift helper.
+- **Agent (Daniel):** `packages/agent` routes text and AAC School input to the Canvas skill. See the [agent guide](packages/agent/README.md).
 - **HCI / interface:** send `UserInput` to the agent and render its `AgentEvent` updates. Start with one large School button and clear acting/done/error feedback.
 
 ## Helper protocol

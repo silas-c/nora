@@ -1,0 +1,5 @@
+{
+  "name": "@nora/agent",
+  "private": true,
+  "type": "module"
+}
