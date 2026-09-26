@@ -299,14 +299,15 @@ Never map untrusted request fields to skill effects or executable actions.
 
 ## Delivery status
 
-- #2: implemented, tested, and committed; Canvas opening was verified manually.
+- #2: closed as completed. Text/AAC parity, failures, and native Canvas opening
+  were verified; the current automated suite remains green.
 - #6: native adapter, persistent transport, protocol documentation, and runnable
   client are implemented. Actual School tile/text UI integration remains with the
   interface teammate; the issue is not complete until both UI paths pass.
-- #7: deterministic navigation and synthetic fixtures pass automated checks. The
-  native localhost run from Codex reached the helper but failed with Accessibility
-  permission denied. Run the documented smoke command from an authorized terminal,
-  then verify the real Canvas account manually before considering the issue done.
+- #7: closed as completed. The repository owner recorded a passing native localhost
+  smoke through the Swift helper and Edge plus live Canvas verification with Courses
+  visible. A separate Codex execution context can still need its own Accessibility
+  grant; that does not invalidate the completed acceptance run.
 - #9: agent gate and transport are implemented and tested with simulated actions.
   A separate mock-only JSON-lines server is available for the teammate-owned
   Cancel/Confirm UI. Full UI acceptance remains pending until that UI is present.
