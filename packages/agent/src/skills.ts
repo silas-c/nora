@@ -7,7 +7,7 @@ export interface Skill {
   doneMessage: string;
 }
 
-export const skills: Record<Exclude<Intent, "UNKNOWN">, Skill> = {
+export const skills: Record<Exclude<Intent, "UNKNOWN" | "OPEN_COURSES">, Skill> = {
   OPEN_DOG_PHOTOS: {
     action: {
       type: "open_url",

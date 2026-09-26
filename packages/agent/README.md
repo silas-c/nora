@@ -5,6 +5,7 @@ and emits `thinking`, `acting`, then `done` or `error`.
 
 | Text / voice transcript | AAC intent | Action |
 | --- | --- | --- |
+| Open Canvas and go to Courses | `OPEN_COURSES` | Open Canvas, inspect controls, and verify Courses |
 | Open Canvas / Open my schoolwork | `OPEN_SCHOOL`, `OPEN_CANVAS` | Open Temple Canvas in Edge |
 | Show me dog photos / Open dog pictures | `OPEN_DOG_PHOTOS` | Open a public Google Images search in Edge |
 | Open Photos | `OPEN_PHOTOS` | Launch Photos |
@@ -118,9 +119,9 @@ independent copies. It records actions but does not simulate UI transitions.
 
 ## Next milestones
 
-- Verify snapshots and targeted actions against a controlled native test window.
-- Add state fixtures and Jev decisions for Canvas navigation.
-- Add bounded navigation, confirmation handling, and optional planning afterward.
+- Verify the Courses workflow on the target Canvas account.
+- Complete the UI connection and add confirmation handling.
+- Consider Jev only after deterministic navigation and safety are reliable.
 
 The shared `confirmation_required` event is reserved; the current agent does not
 implement a confirmation workflow. No model SDK or API key is needed yet.
@@ -167,3 +168,34 @@ node examples/agent-client.mjs --native
 Daniel owns this transport and the controller. The interface teammate owns spawning
 it, mapping the School tile/text input to messages, rendering statuses, and closing
 the session. Issue #6 remains open until both inputs pass from the actual UI.
+
+## Courses navigation — issue #7
+
+```sh
+npm run agent -- --native "Open Canvas and go to Courses"
+# Same request through the AAC path:
+npm run agent -- --native --aac OPEN_COURSES
+```
+
+Sign in to Canvas yourself first. Grant Accessibility permission to the application
+running the helper, then keep Edge active while the workflow runs. The router is
+still deterministic; it uses no AI model. It observes at most ten snapshots, waits
+300 ms between observations, chooses one enabled Courses control by its exact
+normalized label and `AXPress` action, and clicks at most once. It verifies a
+Courses window title or a newly visible All Courses control before emitting done.
+Missing/disabled/ambiguous controls, incomplete snapshots, stale IDs, permission
+errors, changed focus, and unverified results stop with an actionable error.
+
+Native regression check using disposable content (opens and interacts with Edge):
+
+```sh
+swift build --package-path apps/macos-helper
+npm run build
+node dist/agent/src/native-navigation-smoke.js
+```
+
+The localhost smoke check exercises the real TypeScript controller and navigation
+function against a synthetic page; it does not establish that a particular Canvas
+account exposes the same controls. Verify the live command manually before closing
+#7. Mock fixtures contain no account data. Call `agent.dispose()` on session
+shutdown to stop observation loops, then close the native controller.

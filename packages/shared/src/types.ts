@@ -49,6 +49,8 @@ export type AgentResult =
   | { success: false; error: string };
 
 export interface Agent {
+  /** Cancels pending work; the session owner also closes its controller. */
+  dispose(): void;
   submit(input: UserInput): Promise<AgentResult>;
   subscribe(callback: (event: AgentEvent) => void): () => void;
 }

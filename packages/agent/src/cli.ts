@@ -18,5 +18,6 @@ try {
   if (controller instanceof MockComputerController) console.log(JSON.stringify({ actions: controller.actions }));
   if (!result.success) process.exitCode = 1;
 } finally {
+  agent.dispose();
   if (controller instanceof NativeComputerController) await controller.close();
 }

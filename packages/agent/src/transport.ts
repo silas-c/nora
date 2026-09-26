@@ -34,6 +34,7 @@ export function serveAgent(
       if (closing) return;
       closing = true;
       unsubscribe();
+      agent.dispose();
       input.off("data", onData);
       input.pause();
       try { await close(); } catch { /* Connection is already closed. */ } finally { resolve(); }
