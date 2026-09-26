@@ -10,13 +10,17 @@ struct Request: Decodable {
 
 struct Response: Encodable {
     let success: Bool
-    let error: String?
-    let activeApp: String?
+    var error: String? = nil
+    var activeApp: String? = nil
+    var activeWindow: String? = nil
+    var accessibilityTrusted: Bool? = nil
+    var elements: [ElementSnapshot]? = nil
+    var truncated: Bool? = nil
 
-    static let ok = Response(success: true, error: nil, activeApp: nil)
+    static let ok = Response(success: true)
 
     static func failure(_ message: String) -> Response {
-        Response(success: false, error: message, activeApp: nil)
+        Response(success: false, error: message)
     }
 }
 
@@ -46,7 +50,7 @@ func runOpen(_ arguments: [String]) -> Response {
     return .ok
 }
 
-func handle(_ line: String) -> Response {
+@MainActor func handle(_ line: String) -> Response {
     let request: Request
     do {
         request = try JSONDecoder().decode(Request.self, from: Data(line.utf8))
@@ -80,13 +84,27 @@ func handle(_ line: String) -> Response {
         guard let name = NSWorkspace.shared.frontmostApplication?.localizedName else {
             return .failure("Could not determine the active app")
         }
-        return Response(success: true, error: nil, activeApp: name)
+        return Response(success: true, activeApp: name, accessibilityTrusted: AXIsProcessTrusted())
+
+    case "snapshot":
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            return .failure("Could not determine the active app")
+        }
+        do {
+            let snapshot = try snapshotReader.read(app)
+            return Response(success: true, activeApp: snapshot.activeApp, activeWindow: snapshot.activeWindow,
+                            accessibilityTrusted: true, elements: snapshot.elements, truncated: snapshot.truncated)
+        } catch {
+            return Response(success: false, error: error.localizedDescription,
+                            activeApp: app.localizedName, accessibilityTrusted: AXIsProcessTrusted())
+        }
 
     default:
         return .failure("Unsupported action: \(request.type)")
     }
 }
 
+let snapshotReader = SnapshotReader()
 let encoder = JSONEncoder()
 while let line = readLine() {
     let response = handle(line)
@@ -94,3 +112,4 @@ while let line = readLine() {
         FileHandle.standardOutput.write(data + Data([0x0A]))
     }
 }
+snapshotReader.stop()

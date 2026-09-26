@@ -8,11 +8,14 @@ Supported requests:
 {"type":"open_url","url":"https://canvas.temple.edu","browser":"Microsoft Edge"}
 {"type":"launch_app","app":"Microsoft Edge"}
 {"type":"get_state"}
+{"type":"snapshot"}
 ```
 
 `browser` is optional; without it, `open_url` uses the default browser. URLs must use `http` or `https`. The app name must match an installed app.
 
-Successful actions return `{"success":true}`. `get_state` returns `{"success":true,"activeApp":"Microsoft Edge"}` when Edge is frontmost. Any failed request returns `{"success":false,"error":"..."}`. The active app is reported at the moment `get_state` runs, so callers should request state after app activation completes.
+Successful actions return `{"success":true}`. `get_state` reports `activeApp` and `accessibilityTrusted`. `snapshot` adds `activeWindow`, `elements`, and `truncated`. Each element has a temporary `id`, `role`, optional `label`, `enabled`, and available `actions`. IDs are valid only until the next snapshot in the same helper process.
+
+`snapshot` requires macOS Accessibility permission. If it is denied, the JSON error explains where to grant it. For Edge, the helper briefly waits for webpage controls to appear; if they remain unavailable, the error points to `edge://accessibility`. Any failed request returns `{"success":false,"error":"..."}`. The active app is reported at the moment the request runs, so callers should request state after app activation completes.
 
 Quick check without launching an app:
 
