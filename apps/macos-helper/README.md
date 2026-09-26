@@ -32,3 +32,5 @@ Quick check without launching an app:
 ```sh
 printf '%s\n' '{"type":"launch_app"}' '{"type":"get_state"}' | swift run mac-helper
 ```
+
+To check native actions end to end, install Microsoft Edge, grant Accessibility permission to the terminal running the helper, then run `python3 scripts/smoke.py` from this directory. The script serves a disposable page on localhost, opens it in Edge, exercises the helper, and prints `PASS` when the observed page behavior matches the actions. It uses the active desktop while running.
