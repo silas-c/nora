@@ -1,20 +1,49 @@
+import AppKit
 import Foundation
 
 struct Request: Decodable {
     let type: String
     let url: String?
     let browser: String?
+    let app: String?
 }
 
 struct Response: Encodable {
     let success: Bool
     let error: String?
+    let activeApp: String?
 
-    static let ok = Response(success: true, error: nil)
+    static let ok = Response(success: true, error: nil, activeApp: nil)
 
     static func failure(_ message: String) -> Response {
-        Response(success: false, error: message)
+        Response(success: false, error: message, activeApp: nil)
     }
+}
+
+func runOpen(_ arguments: [String]) -> Response {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    process.arguments = arguments
+    process.standardOutput = FileHandle.nullDevice
+    let standardError = Pipe()
+    process.standardError = standardError
+
+    do {
+        try process.run()
+        process.waitUntilExit()
+    } catch {
+        return .failure("Could not open target: \(error.localizedDescription)")
+    }
+
+    guard process.terminationStatus == 0 else {
+        let output = standardError.fileHandleForReading.readDataToEndOfFile()
+        let detail = String(data: output, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let detail, !detail.isEmpty {
+            return .failure(detail)
+        }
+        return .failure("open exited with status \(process.terminationStatus)")
+    }
+    return .ok
 }
 
 func handle(_ line: String) -> Response {
@@ -25,41 +54,37 @@ func handle(_ line: String) -> Response {
         return .failure("Invalid request JSON: \(error.localizedDescription)")
     }
 
-    guard request.type == "open_url" else {
+    switch request.type {
+    case "open_url":
+        guard let rawURL = request.url,
+              let url = URL(string: rawURL),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              url.host != nil else {
+            return .failure("open_url requires a valid http or https URL")
+        }
+        var arguments = [String]()
+        if let browser = request.browser, !browser.isEmpty {
+            arguments += ["-a", browser]
+        }
+        arguments.append(url.absoluteString)
+        return runOpen(arguments)
+
+    case "launch_app":
+        guard let app = request.app?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !app.isEmpty else {
+            return .failure("launch_app requires an app name")
+        }
+        return runOpen(["-a", app])
+
+    case "get_state":
+        guard let name = NSWorkspace.shared.frontmostApplication?.localizedName else {
+            return .failure("Could not determine the active app")
+        }
+        return Response(success: true, error: nil, activeApp: name)
+
+    default:
         return .failure("Unsupported action: \(request.type)")
     }
-    guard let rawURL = request.url,
-          let url = URL(string: rawURL),
-          ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
-          url.host != nil else {
-        return .failure("open_url requires a valid http or https URL")
-    }
-
-    var arguments = [String]()
-    if let browser = request.browser, !browser.isEmpty {
-        arguments += ["-a", browser]
-    }
-    arguments.append(url.absoluteString)
-
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    process.arguments = arguments
-    let standardError = Pipe()
-    process.standardError = standardError
-
-    do {
-        try process.run()
-        process.waitUntilExit()
-    } catch {
-        return .failure("Could not launch browser: \(error.localizedDescription)")
-    }
-
-    guard process.terminationStatus == 0 else {
-        let output = standardError.fileHandleForReading.readDataToEndOfFile()
-        let detail = String(data: output, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return .failure(detail?.isEmpty == false ? detail! : "Browser exited with status \(process.terminationStatus)")
-    }
-    return .ok
 }
 
 let encoder = JSONEncoder()
