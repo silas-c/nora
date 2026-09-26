@@ -143,6 +143,15 @@ controller. The real bounded computer-use loop is tracked in #16. Do not connect
 Jev-selected action to the native helper until #17 provides stable target
 revalidation across snapshots.
 
+The mock-first `runComputerLoop` foundation for #16 is also available as an injected
+API. It caps actions and observations, asks the chooser only once per changed state,
+polls delayed post-action updates without blindly retrying, and stops on unchanged
+screens, changed applications, permission/truncation errors, invalid targets,
+controller failures, cancellation, or uncertain/non-action decisions. Its injected
+action executor must use Nora's safety and history boundary; tests prove that an
+unknown model-selected click produces confirmation rather than execution. No router,
+transport, or native helper path invokes this loop yet.
+
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.

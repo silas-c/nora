@@ -22,7 +22,7 @@ GitHub issue has passed acceptance. Continue using deterministic behavior first.
 | P2-1: Mock controller | Implemented; basic injectable snapshots plus a fixture-backed Canvas state machine used by the CLI/server. Models successful Courses navigation, login, and stale IDs without a native helper. |
 | P2-2: Intent router | Implemented for Canvas/Courses, public dog images, known app launches, and zoom. Generic OPEN_APP/OPEN_WEBSITE routing, volume, COMPUTER_USE, and REASON routes remain future work. Unknown requests fail without executing. |
 | P2-3: Skill registry | Implemented as a typed deterministic registry plus trusted injection for mock tests. OPEN_CANVAS and ZOOM_IN work; known app launches cover Edge, Finder, and Photos. This is not a generalized natural-language skill matcher. |
-| P2-4: Jev / chooseNextAction | **Foundation implemented under #15.** The official SDK adapter receives only bounded sanitized state and opaque choices; local target IDs stay private. Strict response/probability validation, cancellation, confidence fallback, synthetic smoke, and tests are present. The mock execution loop (#16), real API smoke with a newly rotated key, and stable native target work (#17) remain. |
+| P2-4: Jev / chooseNextAction | **Adapter implemented under #15; mock loop foundation implemented under #16.** The official SDK adapter receives only bounded sanitized state and opaque choices; local target IDs stay private. Strict response/probability validation, cancellation, confidence fallback, synthetic smoke, bounded observe/choose/act verification, no-progress detection, and safety-gate regression tests are present. A real API smoke with a newly rotated key, any product route into the loop, and stable native target work (#17) remain. |
 | P2-5: Action history | Implemented: timestamps and controller outcomes, up to 100 redacted in-memory entries; API, JSON-lines access, and optional CLI display. No raw input, state snapshots, or local log files. |
 | P2-6: Confirmations | Agent portion implemented; UI portion and full integration remain pending under #9. |
 | P2-7: Optional planner | Not started; intentionally deferred. |
@@ -57,7 +57,7 @@ verification, and do not add real file deletion to the simulated safety demo.
 
 ## Acceptance run — 2026-09-26
 
-- `npm test`: 70/70 pass after adding the bounded Jev adapter tests, including the
+- `npm test`: 79/79 pass after adding the bounded Jev adapter and mock-loop tests, including the
   existing mock confirmation child-process entry.
 - `swift build --package-path apps/macos-helper`: blocked before compiling Nora by
   installed Swift compiler/macOS SDK version mismatch. The sandbox-local cache
