@@ -120,7 +120,8 @@ independent copies. It records actions but does not simulate UI transitions.
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.
-- Complete the UI connection, including its Cancel/Confirm controls.
+- Complete the teammate-owned UI connection, including its Cancel/Confirm controls,
+  using the production and mock-only server commands below.
 - Consider Jev only after deterministic navigation and safety are reliable.
 
 The agent supports confirmation through `agent.confirm()` and the desktop transport.
@@ -168,6 +169,19 @@ node examples/agent-client.mjs --native
 Daniel owns this transport and the controller. The interface teammate owns spawning
 it, mapping the School tile/text input to messages, rendering statuses, and closing
 the session. Issue #6 remains open until both inputs pass from the actual UI.
+
+UI acceptance checklist:
+
+1. Start exactly one `server.js --native` child for the desktop session and keep
+   its stdin open between requests.
+2. Send the School tile as `{"source":"aac","intent":"OPEN_SCHOOL"}` and typed
+   commands as `{"source":"text","text":"..."}` with unique request IDs.
+3. Render `thinking`, `acting`, `done`, and `error` events by request ID. Do not
+   show completion until the successful result arrives.
+4. Disable or reject overlapping controls while a request is active and render
+   helper failures from the result. Never parse stderr as protocol data.
+5. Close stdin when the UI disconnects and wait for the child to exit. The server
+   disposes the agent and closes the persistent native helper on EOF.
 
 ## Courses navigation — issue #7
 
@@ -247,19 +261,41 @@ or text edits are refused because their focus cannot be bound safely with the
 current contract. These limitations do not affect known safe navigation. Extend
 stable target validation with Silas before exposing sensitive native editing.
 
-Mock-only demonstration; no helper, Photos library, or filesystem changes:
+Mock-only interactive terminal demonstration; no helper, Photos library, or
+filesystem changes:
 
 ```sh
 npm run build
 node examples/confirmation-demo.mjs
 ```
 
-The example injects a simulated destructive skill into a mock controller. Verify
-zero actions before approval, zero after cancellation, one after confirmation,
-and rejection when the ID is reused. Production `server.js` does not expose this
-injected skill. The UI teammate can use the same trusted `resolveSkill` test hook
-with `serveAgent()` for interface development; never map untrusted request fields
-to skill effects or executable actions.
+For the actual desktop confirmation UI, use the separate JSON-lines demo server:
+
+```sh
+npm run build
+npm run agent:confirmation-demo-server
+```
+
+It uses the same request/event/result protocol as the production server. Submit
+only this mock AAC input to display a destructive confirmation safely:
+
+```json
+{"type":"submit","requestId":"demo-1","input":{"source":"aac","intent":"TEST_ONLY_DELETE"}}
+```
+
+The UI must render the exact `action`, `risk`, message, and expiry from the
+`confirmation_required` event, with separate Cancel and Confirm controls. Each
+control sends a `confirm` request with a fresh request ID. Dismiss the prompt on
+every `confirmation_resolved` event and on disconnect. The mock server records
+one inert `launch_app` action after approval; it does not launch an app or delete
+anything. Cancellation, expiry, replay, changed context, and disconnect execute
+nothing. Automated coverage verifies cancellation, one approval, and replay
+rejection through the real child-process entry point; the gate/transport suite
+covers expiry, changed context, and disconnect.
+
+The production `server.js` neither imports this mock entry point nor recognizes
+`TEST_ONLY_DELETE`; its accepted inputs and native behavior remain unchanged.
+Never map untrusted request fields to skill effects or executable actions.
 
 ## Delivery status
 
@@ -272,7 +308,8 @@ to skill effects or executable actions.
   permission denied. Run the documented smoke command from an authorized terminal,
   then verify the real Canvas account manually before considering the issue done.
 - #9: agent gate and transport are implemented and tested with simulated actions.
-  The teammate-owned confirmation UI and full UI integration are still pending.
+  A separate mock-only JSON-lines server is available for the teammate-owned
+  Cancel/Confirm UI. Full UI acceptance remains pending until that UI is present.
 
 The shipped code remains deterministic. AI integration and infrastructure work
 are deferred. Generated files in `dist/` are build artifacts; edit `packages/agent/src`.

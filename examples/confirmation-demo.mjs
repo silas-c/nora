@@ -1,20 +1,12 @@
 // Mock only: no native helper, file deletion, personal data, or model connection.
 import { createInterface } from 'node:readline/promises';
-import { createAgent, MockComputerController } from '../dist/agent/src/index.js';
+import { createConfirmationDemoSession, CONFIRMATION_DEMO_INTENT } from '../dist/agent/src/confirmation-demo.js';
 
-const computer = new MockComputerController();
-const agent = createAgent(computer, {
-  resolveSkill: input => input.source === 'aac' && input.intent === 'TEST_ONLY_DELETE' ? {
-    action: { type: 'launch_app', app: 'Mock deletion executor' },
-    effect: 'deletion',
-    actingMessage: 'Simulate deleting a disposable example item',
-    doneMessage: 'Simulation completed. No real data was changed.',
-  } : undefined,
-});
+const { agent, computer } = createConfirmationDemoSession();
 const terminal = createInterface({ input: process.stdin, output: process.stdout });
 agent.subscribe(event => console.log(event));
 try {
-  const pending = await agent.submit({ source: 'aac', intent: 'TEST_ONLY_DELETE' });
+  const pending = await agent.submit({ source: 'aac', intent: CONFIRMATION_DEMO_INTENT });
   if (pending.success || !pending.requiresConfirmation) throw new Error('Expected confirmation.');
   console.log('Recorded actions before confirmation:', computer.actions.length);
   const answer = await terminal.question('Confirm simulation? Type yes; anything else cancels: ');

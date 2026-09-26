@@ -11,9 +11,9 @@ GitHub issue has passed acceptance. Continue using deterministic behavior first.
 | Issue | Agent-side status | Remaining acceptance |
 | --- | --- | --- |
 | [#2: Canvas skill](https://github.com/silas-c/nora/issues/2) | Implemented and published; text/AAC mock checks pass. Canvas opening was manually verified. | Team review/issue bookkeeping. |
-| [#6: UI integration](https://github.com/silas-c/nora/issues/6) | Persistent helper, JSON-lines transport, request IDs, lifecycle cleanup, client example, and protocol documentation are implemented. | Interface teammate connects School/text controls and verifies both UI paths. |
-| [#7: Courses navigation](https://github.com/silas-c/nora/issues/7) | Deterministic selection, bounded observations, single click, post-action verification, three synthetic fixtures, and error tests are implemented. | Native localhost smoke and live Canvas verification. Helper still reports Accessibility permission disabled in the assistant's execution context. |
-| [#9: Confirmation](https://github.com/silas-c/nora/issues/9) | Risk gate, immutable single-use approvals, expiry/cancel/disconnect handling, protocol, and mock demonstration are implemented. Approval/reuse behavior was manually verified. | Interface teammate connects Cancel/Confirm and validates the complete flow. Native sensitive targeted actions remain limited by temporary IDs; do not claim them verified. |
+| [#6: UI integration](https://github.com/silas-c/nora/issues/6) | Persistent helper, JSON-lines transport, request IDs, lifecycle cleanup, client example, protocol documentation, and UI acceptance checklist are implemented. | The UI is not present in this checkout or any fetched remote branch. Interface teammate connects School/text controls and verifies both UI paths. |
+| [#7: Courses navigation](https://github.com/silas-c/nora/issues/7) | Deterministic selection, bounded observations, single click, post-action verification, three synthetic fixtures, and error tests are implemented. On 2026-09-26 the existing helper reached the disposable smoke workflow, then returned its actionable Accessibility-permission error. | Enable Accessibility for the helper's host and rerun localhost smoke, then verify both text and AAC against live Canvas. A fresh helper build is also blocked locally by a mismatched Swift compiler/macOS SDK toolchain. |
+| [#9: Confirmation](https://github.com/silas-c/nora/issues/9) | Risk gate, immutable single-use approvals, expiry/cancel/disconnect handling, protocol, interactive demo, and separate mock-only JSON-lines server are implemented. The child-process regression proves cancel = 0 actions, approval = 1, replay = 0 additional actions. | Interface teammate connects exact-action Cancel/Confirm UI to the demo server and validates expiry/disconnect rendering. Native sensitive targeted actions remain limited by temporary IDs; do not claim them verified. |
 
 ## Engineering-plan tasks
 
@@ -44,7 +44,7 @@ is currently the structured event stream and redacted history, not a debug UI.
 1. Enable the native test context's Accessibility permission and run the disposable
    smoke test from the [agent guide](../packages/agent/README.md); then verify Canvas.
 2. Finish #6 and #9 acceptance with the interface teammate using the existing
-   transport, shared types, client example, and mock confirmation example.
+   transport, shared types, client example, and `agent:confirmation-demo-server`.
 3. Add Jev only after those prerequisites are reliable; implement against synthetic
    states before allowing live control. No larger-model planner is needed for #7.
 4. Revisit aliases and recovery if the demo needs them. Keep infrastructure and new
@@ -54,3 +54,16 @@ Daniel owns `packages/agent` and coordinating its shared contract. Silas owns th
 native helper. The interface teammate owns controls, speech capture, alias editing,
 status display, and confirmation dialogs. Do not close shared issues on agent-only
 verification, and do not add real file deletion to the simulated safety demo.
+
+## Acceptance run — 2026-09-26
+
+- `npm test`: 62/62 pass, including the mock confirmation child-process entry.
+- `swift build --package-path apps/macos-helper`: blocked before compiling Nora by
+  installed Swift compiler/macOS SDK version mismatch. The sandbox-local cache
+  restriction is secondary; the reported toolchain versions do not match.
+- `node dist/agent/src/native-navigation-smoke.js`: existing helper opened the
+  workflow and returned the documented Accessibility permission error. No
+  screenshot or account content was recorded.
+- Git remote: fetched successfully; local `main` matches `origin/main`. No desktop
+  UI branch is available, so UI-owned acceptance cannot be performed in this
+  checkout without inventing or taking over the teammate's interface.
