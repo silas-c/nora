@@ -10,6 +10,8 @@ struct Request: Decodable {
     let text: String?
     let key: String?
     let modifiers: [String]?
+    let direction: String?
+    let amount: Int?
 }
 
 struct Response: Encodable {
@@ -84,6 +86,17 @@ func runOpen(_ arguments: [String]) -> Response {
         }
         return runOpen(["-a", app])
 
+    case "focus_app":
+        guard let name = request.app?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            return .failure("focus_app requires an app name")
+        }
+        guard let app = NSWorkspace.shared.runningApplications.first(where: {
+            $0.localizedName?.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }) else {
+            return .failure("App is not running: \(name)")
+        }
+        return app.activate(options: []) ? .ok : .failure("Could not focus app: \(name)")
+
     case "get_state":
         guard let name = NSWorkspace.shared.frontmostApplication?.localizedName else {
             return .failure("Could not determine the active app")
@@ -129,6 +142,15 @@ func runOpen(_ arguments: [String]) -> Response {
         guard let key = request.key else { return .failure("keypress requires a key") }
         do {
             try pressKey(key, modifiers: request.modifiers ?? [])
+            return .ok
+        } catch {
+            return .failure(error.localizedDescription)
+        }
+
+    case "scroll":
+        guard let direction = request.direction else { return .failure("scroll requires a direction") }
+        do {
+            try scroll(direction, amount: request.amount ?? 3)
             return .ok
         } catch {
             return .failure(error.localizedDescription)

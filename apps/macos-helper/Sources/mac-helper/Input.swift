@@ -93,3 +93,52 @@ func pressKey(_ key: String, modifiers: [String]) throws {
     down.postToPid(app.processIdentifier)
     up.postToPid(app.processIdentifier)
 }
+
+func scroll(_ direction: String, amount: Int) throws {
+    guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
+    guard CGPreflightPostEventAccess() else {
+        throw ControlError(message: "Scroll event permission is required in System Settings > Privacy & Security > Accessibility")
+    }
+    guard let app = NSWorkspace.shared.frontmostApplication else {
+        throw ControlError(message: "Could not determine the active app")
+    }
+    guard amount > 0 else { throw ControlError(message: "Scroll amount must be positive") }
+    let lines = Int32(min(amount, 20))
+    let vertical: Int32
+    let horizontal: Int32
+    switch direction.lowercased() {
+    case "up": vertical = lines; horizontal = 0
+    case "down": vertical = -lines; horizontal = 0
+    case "left": vertical = 0; horizontal = lines
+    case "right": vertical = 0; horizontal = -lines
+    default: throw ControlError(message: "Unsupported scroll direction: \(direction)")
+    }
+    guard let event = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 2,
+                              wheel1: vertical, wheel2: horizontal, wheel3: 0) else {
+        throw ControlError(message: "Could not create scroll event")
+    }
+    let appElement = AXUIElementCreateApplication(app.processIdentifier)
+    var windowValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
+          let windowValue, CFGetTypeID(windowValue) == AXUIElementGetTypeID() else {
+        throw SnapshotError.noWindow
+    }
+    let window = windowValue as! AXUIElement
+    var positionValue: CFTypeRef?
+    var sizeValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionValue) == .success,
+          AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeValue) == .success,
+          let positionValue, let sizeValue,
+          CFGetTypeID(positionValue) == AXValueGetTypeID(),
+          CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
+        throw ControlError(message: "Could not locate the active window for scrolling")
+    }
+    var origin = CGPoint.zero
+    var size = CGSize.zero
+    guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &origin),
+          AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else {
+        throw ControlError(message: "Could not locate the active window for scrolling")
+    }
+    event.location = CGPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+    event.post(tap: .cgSessionEventTap)
+}
