@@ -8,14 +8,14 @@ struct TileGrid: View {
 
     var body: some View {
         let rows = TileCatalog.scanRows
-        VStack(alignment: .leading, spacing: 8 * scale) {
-            SectionLabel("Choose what to do")
+        VStack(alignment: .leading, spacing: 9 * scale) {
+            SectionLabel("Quick actions")
             ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
                 if rowIndex == rows.count - 1 {
-                    SectionLabel("Text size in the app you’re using")
-                        .padding(.top, 2 * scale)
+                    SectionLabel("Text size")
+                        .padding(.top, 6 * scale)
                 }
-                HStack(spacing: 12 * scale) {
+                HStack(spacing: 10 * scale) {
                     ForEach(Array(row.enumerated()), id: \.element.id) { column, tile in
                         TileView(tile: tile, compact: rowIndex == rows.count - 1, model: model)
                             .focused(focus, equals: .tile(tile.id))
@@ -55,16 +55,18 @@ struct TileView: View {
     let tile: TileSpec
     let compact: Bool
     let model: AppModel
+    @State private var hovered = false
 
     var body: some View {
         let enabled = model.interaction.acceptsInput
         TileFace(tile: tile, compact: compact, enabled: enabled,
+                 hovered: hovered,
                  scanHighlighted: model.scanner.isHighlighted(tile),
                  dwellStart: model.dwellTarget == tile.id ? model.dwellStartedAt : nil,
                  dwellSeconds: model.settings.dwellSeconds)
             .contentShape(Rectangle())
             .onTapGesture { if enabled { model.activate(tile) } }
-            .onHover { model.hover(tile, inside: $0) }
+            .onHover { hovered = $0; model.hover(tile, inside: $0) }
             .focusable(enabled)
             .focusEffectDisabled()
             .onKeyPress(.return) { activate(enabled) }
@@ -96,6 +98,7 @@ private struct TileFace: View {
     let tile: TileSpec
     let compact: Bool
     let enabled: Bool
+    let hovered: Bool
     let scanHighlighted: Bool
     let dwellStart: Date?
     let dwellSeconds: Double
@@ -105,45 +108,47 @@ private struct TileFace: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let radius = 22 * scale
+        let radius = 17 * scale
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         Group {
             if compact {
-                HStack(spacing: 12 * scale) {
+                HStack(spacing: 9 * scale) {
                     Image(systemName: tile.symbol)
-                        .font(.system(size: 26 * scale, weight: .semibold))
+                        .font(.system(size: 19 * scale, weight: .medium))
                     Text(tile.title)
-                        .font(.nora(22, .bold, scale: scale))
+                        .font(.nora(17, .semibold, scale: scale))
                         .lineLimit(1)
                 }
             } else {
-                VStack(spacing: 6 * scale) {
+                VStack(spacing: 5 * scale) {
                     Image(systemName: tile.symbol)
-                        .font(.system(size: 40 * scale, weight: .semibold))
-                        .frame(height: 46 * scale)
+                        .font(.system(size: 27 * scale, weight: .medium))
+                        .foregroundStyle(tile.intent == "OPEN_SCHOOL" ? Color.accentColor : Color.primary)
+                        .frame(height: 34 * scale)
                     Text(tile.title)
-                        .font(.nora(25, .bold, scale: scale))
+                        .font(.nora(19, .semibold, scale: scale))
                         .lineLimit(1)
                     Text(tile.detail)
-                        .font(.nora(15, .semibold, scale: scale))
-                        .lineLimit(2)
+                        .font(.nora(12, scale: scale))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.primary)
         .multilineTextAlignment(.center)
-        .padding(10 * scale)
-        .frame(maxWidth: .infinity, minHeight: (compact ? 60 : 180) * scale)
-        .background(shape.fill(Color(hex: tile.color)))
-        .overlay(shape.strokeBorder(Color.white.opacity(contrast == .increased ? 1 : 0.22), lineWidth: (contrast == .increased ? 3 : 1) * scale))
+        .padding(8 * scale)
+        .frame(maxWidth: .infinity, minHeight: (compact ? 55 : 116) * scale)
+        .background(shape.fill(tile.intent == "OPEN_SCHOOL" ? Color.accentColor.opacity(hovered ? 0.19 : 0.12) : Color(nsColor: .controlBackgroundColor).opacity(hovered ? 1 : 0.72)))
+        .overlay(shape.strokeBorder(Color.primary.opacity(contrast == .increased ? 0.55 : 0.10), lineWidth: (contrast == .increased ? 2 : 1) * scale))
         .overlay(alignment: .topLeading) {
             Text(tile.shortcut)
-                .font(.system(size: 13 * scale, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 7 * scale)
-                .padding(.vertical, 3 * scale)
-                .background(Capsule().fill(Color.black.opacity(0.45)))
-                .padding(8 * scale)
+                .font(.system(size: 11 * scale, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6 * scale)
+                .padding(.vertical, 2 * scale)
+                .background(Capsule().fill(Color.primary.opacity(0.06)))
+                .padding(7 * scale)
         }
         .overlay {
             if let dwellStart {
@@ -172,15 +177,15 @@ private struct DwellRing: View {
         TimelineView(.animation(minimumInterval: stepped ? 0.25 : 1.0 / 30)) { context in
             let progress = min(1, max(0, context.date.timeIntervalSince(start) / seconds))
             ZStack {
-                Circle().stroke(Color.white.opacity(0.35), lineWidth: 8 * scale)
+                Circle().stroke(Color.primary.opacity(0.18), lineWidth: 8 * scale)
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 8 * scale, lineCap: .round))
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8 * scale, lineCap: .round))
                     .rotationEffect(.degrees(-90))
             }
             .frame(width: 60 * scale, height: 60 * scale)
             .padding(8 * scale)
-            .background(Circle().fill(Color.black.opacity(0.4)))
+            .background(Circle().fill(.regularMaterial))
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

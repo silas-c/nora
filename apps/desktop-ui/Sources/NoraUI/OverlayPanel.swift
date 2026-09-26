@@ -11,6 +11,8 @@ final class OverlayPanel: NSPanel {
         self.title = title
         titleVisibility = utility ? .visible : .hidden
         titlebarAppearsTransparent = !utility
+        isOpaque = false
+        backgroundColor = .clear
         isMovableByWindowBackground = true
         isFloatingPanel = true
         level = .floating
@@ -18,7 +20,14 @@ final class OverlayPanel: NSPanel {
         becomesKeyOnlyIfNeeded = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isReleasedWhenClosed = false
-        contentView = content
+        let backdrop = NSVisualEffectView(frame: NSRect(origin: .zero, size: contentRect.size))
+        backdrop.material = .popover
+        backdrop.blendingMode = .behindWindow
+        backdrop.state = .active
+        content.frame = backdrop.bounds
+        content.autoresizingMask = [.width, .height]
+        backdrop.addSubview(content)
+        contentView = backdrop
     }
 
     override var canBecomeKey: Bool { true }

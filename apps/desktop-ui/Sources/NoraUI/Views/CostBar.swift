@@ -55,9 +55,10 @@ struct CostBar: View {
                 .font(.nora(15, scale: scale))
             }
         }
-        .padding(16 * scale)
+        .padding(.top, 12 * scale)
+        .padding(.bottom, 6 * scale)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16 * scale, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(alignment: .top) { Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 1) }
         .accessibilityElement(children: .contain)
     }
 

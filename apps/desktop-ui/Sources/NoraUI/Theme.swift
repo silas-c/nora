@@ -37,7 +37,7 @@ extension EnvironmentValues {
 
 extension Font {
     static func nora(_ size: CGFloat, _ weight: Font.Weight = .regular, scale: CGFloat) -> Font {
-        .system(size: size * scale, weight: weight, design: .rounded)
+        .system(size: size * scale, weight: weight)
     }
 }
 
@@ -51,8 +51,7 @@ struct SectionLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.nora(15, .bold, scale: scale))
-            .textCase(.uppercase)
+            .font(.nora(16, .semibold, scale: scale))
             .foregroundStyle(.primary)
             .accessibilityAddTraits(.isHeader)
     }

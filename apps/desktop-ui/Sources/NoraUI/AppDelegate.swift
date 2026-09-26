@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let baseSize = NSSize(width: 580, height: 1040)
+    private static let baseSize = NSSize(width: 620, height: 800)
 
     private var model: AppModel?
     private var panel: OverlayPanel?

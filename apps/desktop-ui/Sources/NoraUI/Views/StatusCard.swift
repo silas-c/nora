@@ -10,14 +10,15 @@ struct StatusCard: View {
 
     var body: some View {
         let status = StatusPresentation(model: model)
-        VStack(alignment: .leading, spacing: 14 * scale) {
-            HStack(alignment: .top, spacing: 14 * scale) {
+        VStack(alignment: .leading, spacing: 10 * scale) {
+            HStack(alignment: .top, spacing: 10 * scale) {
                 StatusIcon(status: status, reduceMotion: reduceMotion)
-                VStack(alignment: .leading, spacing: 4 * scale) {
+                VStack(alignment: .leading, spacing: 3 * scale) {
                     Text(status.title)
-                        .font(.nora(26, .bold, scale: scale))
+                        .font(.nora(19, .semibold, scale: scale))
                     Text(status.message)
-                        .font(.nora(19, .regular, scale: scale))
+                        .font(.nora(14, scale: scale))
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -30,10 +31,10 @@ struct StatusCard: View {
             }
             StatusActions(model: model, focus: focus)
         }
-        .padding(18 * scale)
+        .padding(14 * scale)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 18 * scale, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 18 * scale, style: .continuous).strokeBorder(status.color, lineWidth: 3 * scale))
+        .background(RoundedRectangle(cornerRadius: 16 * scale, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.72)))
+        .overlay(RoundedRectangle(cornerRadius: 16 * scale, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: status.title)
     }
 }
@@ -74,7 +75,7 @@ struct StatusPresentation {
         case .connecting:
             self.init("Starting Nora…", "Connecting to the agent.", "hourglass", Color(Palette.info), busy: true)
         case .idle:
-            self.init("Ready", "Choose a picture below, or type what you want.", "hand.wave.fill", Color(Palette.info))
+            self.init("Ready", "Choose an action, type a request, or speak.", "hand.wave.fill", Color(Palette.info))
         case .listening(let partial):
             self.init("Listening…", partial ?? "Say what you want to do.", "mic.fill", Color(Palette.info))
         case .working(.thinking, let message):
@@ -121,11 +122,11 @@ private struct StatusIcon: View {
                 ProgressView().controlSize(.large)
             } else {
                 Image(systemName: status.symbol)
-                    .font(.system(size: 34 * scale, weight: .bold))
+                    .font(.system(size: 23 * scale, weight: .medium))
                     .foregroundStyle(status.color)
             }
         }
-        .frame(width: 44 * scale, height: 44 * scale)
+        .frame(width: 28 * scale, height: 28 * scale)
         .accessibilityHidden(true)
     }
 }

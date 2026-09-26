@@ -11,7 +11,7 @@ enum SnapshotRenderer {
         var mode: AgentMode = .mock
         var scale: Double = 1
         var dark = false
-        var height: CGFloat = 1080
+        var height: CGFloat = 800
         var setup: (AppModel) -> Void = { _ in }
     }
 
@@ -69,7 +69,7 @@ enum SnapshotRenderer {
                 succeed(model, "ZOOM_IN", acting: "Sending zoom-in shortcut to the active app…", done: "Zoom-in shortcut sent to the active app.")
             },
             Scene(name: "09-scanning") { model in model.setScanning(true) },
-            Scene(name: "10-large-text", scale: 1.5, height: 1500),
+            Scene(name: "10-large-text", scale: 1.5, height: 1200),
         ]
     }
 
@@ -82,7 +82,9 @@ enum SnapshotRenderer {
             let model = AppModel(mode: scene.mode, settings: settings, preview: true)
             model.start()
             scene.setup(model)
-            write(RootView(model: model), size: NSSize(width: 580 * scene.scale, height: scene.height),
+            // Snapshots have no desktop behind the transparent panel, so give them a neutral backdrop.
+            write(RootView(model: model).background(Color(nsColor: .windowBackgroundColor)),
+                  size: NSSize(width: 620 * scene.scale, height: scene.height),
                   dark: scene.dark, to: directory.appendingPathComponent("\(scene.name).png"))
             model.scanner.stop()
             lastModel = model
