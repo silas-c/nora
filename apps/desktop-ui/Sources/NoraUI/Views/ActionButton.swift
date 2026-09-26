@@ -50,23 +50,29 @@ private struct ActionButtonLabel: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let radius = (style == .chip ? 14 : 16) * scale
+        let radius = (style == .chip ? 12 : 15) * scale
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         HStack(spacing: 8 * scale) {
             if let symbol {
-                Image(systemName: symbol).font(.system(size: (style == .chip ? 16 : 20) * scale, weight: .bold))
+                Image(systemName: symbol).font(.system(size: (style == .chip ? 14 : 18) * scale, weight: .medium))
                     .accessibilityHidden(true)
             }
             Text(title)
-                .font(.nora(style == .chip ? 17 : 20, .bold, scale: scale))
+                .font(.nora(style == .chip ? 13 : 16, .semibold, scale: scale))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(foreground)
-        .padding(.horizontal, (style == .chip ? 14 : 20) * scale)
-        .frame(minHeight: (style == .chip ? 48 : 56) * scale)
-        .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(background))
-        .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .strokeBorder(border, lineWidth: (contrast == .increased ? 3 : 2) * scale))
+        .padding(.horizontal, (style == .chip ? 12 : 16) * scale)
+        .frame(minHeight: (style == .chip ? 38 : 48) * scale)
+        .background {
+            if #available(macOS 26, *), style == .prominent || style == .neutral {
+                Color.clear.glassEffect(.regular.tint(style == .prominent ? Color.accentColor : nil).interactive(), in: shape)
+            } else {
+                shape.fill(background)
+            }
+        }
+        .overlay(shape.strokeBorder(border, lineWidth: (contrast == .increased ? 2 : 1) * scale))
         .overlay(FocusRing(cornerRadius: radius, visible: isFocused))
         .opacity(enabled ? 1 : 0.45)
     }
@@ -81,7 +87,9 @@ private struct ActionButtonLabel: View {
 
     private var foreground: Color {
         switch style {
-        case .prominent, .destructive: .white
+        case .destructive: .white
+        case .prominent:
+            if #available(macOS 26, *) { .primary } else { .white }
         case .neutral, .chip: .primary
         }
     }
@@ -89,7 +97,7 @@ private struct ActionButtonLabel: View {
     private var border: Color {
         switch style {
         case .prominent, .destructive: .clear
-        case .neutral, .chip: Color.primary.opacity(0.6)
+        case .neutral, .chip: Color.primary.opacity(0.12)
         }
     }
 }

@@ -27,7 +27,8 @@ Grant Accessibility permission to Nora when macOS asks. Opening apps and website
 - Status shows idle, working, done, and error, and announces each change to VoiceOver without moving focus.
 - An unknown request offers tappable “Did you mean” choices instead of a dead end.
 - Destructive actions wait for Cancel or Confirm. The agent enforces that pause; the panel only renders it.
-- Tiles stay in fixed positions, pair a symbol with a text label, and are at least 180 points tall.
+- Tiles stay in fixed positions and pair a symbol with a text label. The compact panel keeps every target large enough for pointer, keyboard, and switch scanning.
+- The floating panel uses the Mac's behind-window material, with native Liquid Glass on its controls where supported. Reduce Transparency makes the background opaque.
 
 ## Speech
 

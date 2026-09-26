@@ -5,24 +5,19 @@ struct TextRequestBar: View {
     @Bindable var model: AppModel
     var focus: FocusState<FocusTarget?>.Binding
     @Environment(\.noraScale) private var scale
+    @State private var showsPracticeTools = false
 
     var body: some View {
         let enabled = model.interaction.acceptsInput
-        let editing = focus.wrappedValue == .textField
         let hasText = !model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        VStack(alignment: .leading, spacing: 10 * scale) {
-            SectionLabel("Or type it, or say it")
+        VStack(alignment: .leading, spacing: 9 * scale) {
+            SectionLabel("Ask Nora")
             HStack(alignment: .center, spacing: 10 * scale) {
                 TextField("Type a request", text: $model.draft,
                           prompt: Text("Type what you want").foregroundStyle(Color.primary.opacity(0.7)))
-                    .textFieldStyle(.plain)
-                    .font(.nora(21, .medium, scale: scale))
-                    .padding(.horizontal, 14 * scale)
-                    .frame(minHeight: 56 * scale)
-                    .background(RoundedRectangle(cornerRadius: 14 * scale).fill(Color(nsColor: .textBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius: 14 * scale)
-                        .strokeBorder(editing ? Color(nsColor: .keyboardFocusIndicatorColor) : Color.primary.opacity(0.6),
-                                      lineWidth: (editing ? 3 : 1.5) * scale))
+                    .textFieldStyle(.roundedBorder)
+                    .font(.nora(16, scale: scale))
+                    .frame(minHeight: 48 * scale)
                     .focused(focus, equals: .textField)
                     .onSubmit { model.submitDraft() }
                     .accessibilityLabel("Type a request")
@@ -31,21 +26,27 @@ struct TextRequestBar: View {
                              hint: "Sends what you typed") { model.submitDraft() }
                 VoiceButton(model: model)
             }
-            FlowLayout(spacing: 8 * scale) {
+            FlowLayout(spacing: 6 * scale) {
                 Text("Try:")
-                    .font(.nora(16, .bold, scale: scale))
-                    .frame(minHeight: 48 * scale)
+                    .font(.nora(13, .medium, scale: scale))
+                    .foregroundStyle(.secondary)
+                    .frame(minHeight: 38 * scale)
                 ForEach(Vocabulary.examples, id: \.self) { phrase in
                     ActionButton(title: phrase, style: .chip, enabled: enabled, hint: "Sends this request") {
                         model.submitExample(phrase)
                     }
                 }
-                if model.mode == .mock {
+            }
+            if model.mode == .mock {
+                DisclosureGroup("Practice tools", isExpanded: $showsPracticeTools) {
                     ActionButton(title: "Safety demo: delete Downloads", symbol: "exclamationmark.shield.fill", style: .chip, enabled: enabled,
                                  hint: "A practice request that asks you to confirm. No files are touched.") {
                         model.submitExample("Delete everything in Downloads")
                     }
+                    .padding(.top, 6 * scale)
                 }
+                .font(.nora(13, .medium, scale: scale))
+                .foregroundStyle(.secondary)
             }
         }
         .onChange(of: model.draft) { _, value in

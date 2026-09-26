@@ -82,8 +82,9 @@ struct ConfirmOverlay: View {
         }
         .padding(24 * scale)
         .frame(maxWidth: 500 * scale, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 22 * scale, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 22 * scale, style: .continuous).strokeBorder(color, lineWidth: 3 * scale))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22 * scale, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22 * scale, style: .continuous).strokeBorder(color.opacity(0.65), lineWidth: 1.5 * scale))
+        .shadow(color: .black.opacity(0.22), radius: 28 * scale, y: 12 * scale)
     }
 
     private static func json(_ action: ComputerAction) -> String {
