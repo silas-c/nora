@@ -1,10 +1,10 @@
 # Nora
 
-Nora is a macOS accessibility layer that turns voice, text, and AAC inputs into bounded computer actions. The first working path is **Open Canvas in Microsoft Edge**.
+Nora is a macOS accessibility layer that turns voice, text, and AAC inputs into bounded computer actions. The first team integration target is **Open Canvas in Microsoft Edge**.
 
 ## Team starting points
 
-- **macOS controller (Silas):** extend `apps/macos-helper` with native computer actions. The first action is `open_url`.
+- **macOS controller (Silas):** maintain `apps/macos-helper`, which now provides app launch/focus, URL opening, accessibility snapshots, click, text, keypress, and scroll actions.
 - **Agent:** use the types in `packages/shared/src/types.ts` to route “Open Canvas” to `open_url`. Start with a mock controller, then connect to the Swift helper.
 - **HCI / interface:** send `UserInput` to the agent and render its `AgentEvent` updates. Start with one large School button and clear acting/done/error feedback.
 
@@ -30,7 +30,7 @@ On failure:
 {"success":false,"error":"A useful error message"}
 ```
 
-Only `open_url` is implemented in the first version. The helper accepts `http` and `https` URLs. Omit `browser` to use the default browser.
+The helper accepts `http` and `https` URLs. Omit `browser` to use the default browser. See [the helper README](apps/macos-helper/README.md) for all actions and the snapshot response. `get_state` reports the active app and Accessibility permission; `snapshot` provides temporary element IDs for `click` and targeted `type_text`.
 
 ## Build and run on macOS
 
