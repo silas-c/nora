@@ -11,30 +11,31 @@ struct StatusCard: View {
     var body: some View {
         let status = StatusPresentation(model: model)
         VStack(alignment: .leading, spacing: 10 * scale) {
-            HStack(alignment: .top, spacing: 10 * scale) {
-                StatusIcon(status: status, reduceMotion: reduceMotion)
-                VStack(alignment: .leading, spacing: 3 * scale) {
-                    Text(status.title)
+            HStack(alignment: .center, spacing: 18 * scale) {
+                VoiceButton(model: model)
+                VStack(alignment: .leading, spacing: 5 * scale) {
+                    Text(status.title == "Ready" ? "What would you like to do?" : status.title)
                         .font(.nora(19, .semibold, scale: scale))
-                    Text(status.message)
+                    Text(status.title == "Ready" ? "Press to speak, or type a command below." : status.message)
                         .font(.nora(14, scale: scale))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.primary.opacity(0.72))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
+                if status.busy && !reduceMotion {
+                    ProgressView().controlSize(.small)
+                }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(status.title). \(status.message)")
+            .accessibilityElement(children: .contain)
 
             if case .listening(let level) = model.voice.state {
                 LevelMeter(level: level)
             }
             StatusActions(model: model, focus: focus)
         }
-        .padding(14 * scale)
+        .padding(16 * scale)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16 * scale, style: .continuous).fill(Color(nsColor: .controlBackgroundColor).opacity(0.72)))
-        .overlay(RoundedRectangle(cornerRadius: 16 * scale, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+        .modifier(NoraGlass(shape: RoundedRectangle(cornerRadius: 22 * scale, style: .continuous)))
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: status.title)
     }
 }
@@ -108,26 +109,6 @@ struct StatusPresentation {
         self.symbol = symbol
         self.color = color
         self.busy = busy
-    }
-}
-
-private struct StatusIcon: View {
-    let status: StatusPresentation
-    let reduceMotion: Bool
-    @Environment(\.noraScale) private var scale
-
-    var body: some View {
-        Group {
-            if status.busy && !reduceMotion {
-                ProgressView().controlSize(.large)
-            } else {
-                Image(systemName: status.symbol)
-                    .font(.system(size: 23 * scale, weight: .medium))
-                    .foregroundStyle(status.color)
-            }
-        }
-        .frame(width: 28 * scale, height: 28 * scale)
-        .accessibilityHidden(true)
     }
 }
 

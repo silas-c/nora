@@ -9,11 +9,10 @@ struct TileGrid: View {
     var body: some View {
         let rows = TileCatalog.scanRows
         VStack(alignment: .leading, spacing: 9 * scale) {
-            SectionLabel("Quick actions")
             ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
                 if rowIndex == rows.count - 1 {
                     SectionLabel("Text size")
-                        .padding(.top, 6 * scale)
+                        .padding(.top, 3 * scale)
                 }
                 HStack(spacing: 10 * scale) {
                     ForEach(Array(row.enumerated()), id: \.element.id) { column, tile in
@@ -26,10 +25,8 @@ struct TileGrid: View {
                     }
                 }
                 .padding(5 * scale)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 27 * scale, style: .continuous)
-                        .strokeBorder(Color(hex: Palette.scanHighlight), lineWidth: model.scanner.isRowHighlighted(rowIndex) ? 6 * scale : 0)
-                        .allowsHitTesting(false))
+                .background(RoundedRectangle(cornerRadius: 27 * scale, style: .continuous)
+                    .fill(Color(hex: Palette.scanHighlight).opacity(model.scanner.isRowHighlighted(rowIndex) ? 0.22 : 0)))
             }
         }
     }
@@ -104,52 +101,39 @@ private struct TileFace: View {
     let dwellSeconds: Double
     @Environment(\.isFocused) private var isFocused
     @Environment(\.noraScale) private var scale
-    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let radius = 17 * scale
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        Group {
-            if compact {
-                HStack(spacing: 9 * scale) {
-                    Image(systemName: tile.symbol)
-                        .font(.system(size: 19 * scale, weight: .medium))
-                    Text(tile.title)
-                        .font(.nora(17, .semibold, scale: scale))
-                        .lineLimit(1)
-                }
-            } else {
-                VStack(spacing: 5 * scale) {
-                    Image(systemName: tile.symbol)
-                        .font(.system(size: 27 * scale, weight: .medium))
-                        .foregroundStyle(tile.intent == "OPEN_SCHOOL" ? Color.accentColor : Color.primary)
-                        .frame(height: 34 * scale)
-                    Text(tile.title)
-                        .font(.nora(19, .semibold, scale: scale))
-                        .lineLimit(1)
-                    Text(tile.detail)
-                        .font(.nora(12, scale: scale))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+        HStack(spacing: 12 * scale) {
+            Image(systemName: tile.symbol)
+                .font(.system(size: 22 * scale, weight: .medium))
+                .foregroundStyle(iconColor)
+                .frame(width: 43 * scale, height: 43 * scale)
+                .background(RoundedRectangle(cornerRadius: 11 * scale, style: .continuous)
+                    .fill(iconColor.opacity(0.13)))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4 * scale) {
+                Text(tile.title)
+                    .font(.nora(15, .semibold, scale: scale))
+                    .lineLimit(1)
+                Text(tile.detail)
+                    .font(.nora(11, scale: scale))
+                    .foregroundStyle(Color.primary.opacity(0.72))
+                    .lineLimit(1)
             }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12 * scale, weight: .medium))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
         .foregroundStyle(.primary)
-        .multilineTextAlignment(.center)
-        .padding(8 * scale)
-        .frame(maxWidth: .infinity, minHeight: (compact ? 55 : 116) * scale)
-        .background(shape.fill(tile.intent == "OPEN_SCHOOL" ? Color.accentColor.opacity(hovered ? 0.19 : 0.12) : Color(nsColor: .controlBackgroundColor).opacity(hovered ? 1 : 0.72)))
-        .overlay(shape.strokeBorder(Color.primary.opacity(contrast == .increased ? 0.55 : 0.10), lineWidth: (contrast == .increased ? 2 : 1) * scale))
-        .overlay(alignment: .topLeading) {
-            Text(tile.shortcut)
-                .font(.system(size: 11 * scale, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6 * scale)
-                .padding(.vertical, 2 * scale)
-                .background(Capsule().fill(Color.primary.opacity(0.06)))
-                .padding(7 * scale)
-        }
+        .padding(.horizontal, 13 * scale)
+        .frame(maxWidth: .infinity, minHeight: (compact ? 70 : 82) * scale)
+        .modifier(NoraGlass(shape: shape, interactive: true))
+        .overlay(shape.fill(Color.accentColor.opacity(hovered ? 0.08 : 0)).allowsHitTesting(false))
         .overlay {
             if let dwellStart {
                 DwellRing(start: dwellStart, seconds: dwellSeconds, stepped: reduceMotion)
@@ -157,12 +141,23 @@ private struct TileFace: View {
         }
         .overlay {
             if scanHighlighted {
-                shape.strokeBorder(Color(hex: Palette.scanHighlight), lineWidth: 7 * scale)
-                    .overlay(shape.inset(by: 7 * scale).strokeBorder(Color.black, lineWidth: 2 * scale))
+                shape.fill(Color(hex: Palette.scanHighlight).opacity(0.22)).allowsHitTesting(false)
             }
         }
         .overlay(FocusRing(cornerRadius: radius, visible: isFocused))
         .opacity(enabled ? 1 : 0.42)
+    }
+
+    private var iconColor: Color {
+        switch tile.intent {
+        case "OPEN_SCHOOL": .blue
+        case "OPEN_COURSES": .indigo
+        case "OPEN_PHOTOS": .pink
+        case "OPEN_DOG_PHOTOS": .orange
+        case "OPEN_INTERNET": .cyan
+        case "OPEN_FINDER": .teal
+        default: .blue
+        }
     }
 }
 
@@ -176,16 +171,16 @@ private struct DwellRing: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: stepped ? 0.25 : 1.0 / 30)) { context in
             let progress = min(1, max(0, context.date.timeIntervalSince(start) / seconds))
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.18), lineWidth: 8 * scale)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 8 * scale, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+            GeometryReader { geometry in
+                Capsule().fill(Color.primary.opacity(0.15))
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(Color.accentColor)
+                            .frame(width: geometry.size.width * progress)
+                    }
             }
-            .frame(width: 60 * scale, height: 60 * scale)
+            .frame(width: 80 * scale, height: 8 * scale)
             .padding(8 * scale)
-            .background(Circle().fill(.regularMaterial))
+            .background(.regularMaterial, in: Capsule())
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

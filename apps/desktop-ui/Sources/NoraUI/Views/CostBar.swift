@@ -58,7 +58,6 @@ struct CostBar: View {
         .padding(.top, 12 * scale)
         .padding(.bottom, 6 * scale)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .top) { Rectangle().fill(Color.primary.opacity(0.10)).frame(height: 1) }
         .accessibilityElement(children: .contain)
     }
 

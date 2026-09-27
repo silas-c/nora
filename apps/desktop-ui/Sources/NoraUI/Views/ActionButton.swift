@@ -47,7 +47,6 @@ private struct ActionButtonLabel: View {
     let enabled: Bool
     @Environment(\.isFocused) private var isFocused
     @Environment(\.noraScale) private var scale
-    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         let radius = (style == .chip ? 12 : 15) * scale
@@ -72,7 +71,6 @@ private struct ActionButtonLabel: View {
                 shape.fill(background)
             }
         }
-        .overlay(shape.strokeBorder(border, lineWidth: (contrast == .increased ? 2 : 1) * scale))
         .overlay(FocusRing(cornerRadius: radius, visible: isFocused))
         .opacity(enabled ? 1 : 0.45)
     }
@@ -94,12 +92,6 @@ private struct ActionButtonLabel: View {
         }
     }
 
-    private var border: Color {
-        switch style {
-        case .prominent, .destructive: .clear
-        case .neutral, .chip: Color.primary.opacity(0.12)
-        }
-    }
 }
 
 /// Wraps children onto new lines, so example phrases and repair choices never truncate at large text sizes.

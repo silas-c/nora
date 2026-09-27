@@ -23,6 +23,8 @@ struct TransparencyView: View {
                     if !model.voice.lastEngine.isEmpty { row("Speech recognition", model.voice.lastEngine) }
                 }
 
+                CostBar(model: model)
+
                 section("Actions the agent ran") {
                     HStack(spacing: 8) {
                         ActionButton(title: "Refresh", symbol: "arrow.clockwise", style: .chip) { model.refreshHistory() }
@@ -127,7 +129,6 @@ struct TransparencyView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.18), lineWidth: 1))
     }
 
     private func row(_ label: String, _ value: String) -> some View {

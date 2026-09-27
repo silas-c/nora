@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private static let baseSize = NSSize(width: 620, height: 800)
+    private static let baseSize = NSSize(width: 820, height: 710)
 
     private var model: AppModel?
     private var panel: OverlayPanel?
@@ -68,8 +68,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         host.sizingOptions = [.minSize]
         let size = NSSize(width: Self.baseSize.width * CGFloat(model.settings.scale), height: Self.baseSize.height)
         let panel = OverlayPanel(contentRect: NSRect(origin: .zero, size: size), title: "Nora", content: host)
-        if !panel.setFrameUsingName("NoraMainPanel") { place(panel) }
-        panel.setFrameAutosaveName("NoraMainPanel")
+        if !panel.setFrameUsingName("NoraGlassPanel") { place(panel) }
+        panel.setFrameAutosaveName("NoraGlassPanel")
         panel.orderFrontRegardless()
         self.panel = panel
     }
@@ -78,7 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let screen = NSScreen.main?.visibleFrame else { return }
         let width = min(panel.frame.width, screen.width - 48)
         let height = min(panel.frame.height, screen.height - 48)
-        panel.setFrame(NSRect(x: screen.maxX - width - 24, y: screen.maxY - height - 24, width: width, height: height), display: true)
+        panel.setFrame(NSRect(x: screen.midX - width / 2, y: screen.midY - height / 2,
+                              width: width, height: height), display: true)
     }
 
     private func resizePanel(for scale: Double) {

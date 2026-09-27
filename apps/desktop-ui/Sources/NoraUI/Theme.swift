@@ -41,6 +41,26 @@ extension Font {
     }
 }
 
+struct NoraGlass<Surface: Shape>: ViewModifier {
+    let shape: Surface
+    var interactive = false
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        content.background {
+            if #available(macOS 26, *) {
+                if interactive {
+                    shape.fill(.regularMaterial).glassEffect(.regular.interactive(), in: shape)
+                } else {
+                    shape.fill(.regularMaterial).glassEffect(.regular, in: shape)
+                }
+            } else {
+                shape.fill(.regularMaterial)
+            }
+        }
+    }
+}
+
 struct SectionLabel: View {
     let text: String
     @Environment(\.noraScale) private var scale
@@ -57,7 +77,7 @@ struct SectionLabel: View {
     }
 }
 
-/// Two-tone focus ring (dark outer, light inner) that stays visible on any tile or background.
+/// A soft focus glow keeps keyboard focus visible without drawing an outline.
 struct FocusRing: View {
     var cornerRadius: CGFloat
     var visible: Bool
@@ -66,12 +86,9 @@ struct FocusRing: View {
     var body: some View {
         if visible {
             RoundedRectangle(cornerRadius: cornerRadius + 5 * scale, style: .continuous)
-                .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor).opacity(1), lineWidth: 4 * scale)
-                .padding(-7 * scale)
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius + 2 * scale, style: .continuous)
-                        .strokeBorder(Color.white, lineWidth: 2 * scale)
-                        .padding(-3 * scale))
+                .fill(Color(nsColor: .keyboardFocusIndicatorColor).opacity(0.22))
+                .padding(-5 * scale)
+                .shadow(color: Color(nsColor: .keyboardFocusIndicatorColor).opacity(0.65), radius: 12 * scale)
                 .allowsHitTesting(false)
         }
     }
