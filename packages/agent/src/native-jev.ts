@@ -24,19 +24,19 @@ export interface NativeJevResult {
 
 const normalize = (value: string | undefined) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 const PROHIBITED_LABEL = /\b(delete|remove|submit|send|save|purchase|buy|checkout|download|upload|account|password|pay|post|publish|sign\s*out|log\s*out)\b/i;
-const COURSES_LABEL = /\bcourses?\b/i;
+const COURSES_LABEL = /^(?:all )?courses$/;
 
 export function isNativeCoursesDestination(state: ComputerState): boolean {
   const window = normalize(state.activeWindow);
-  return window.startsWith("courses - canvas")
-    || window.startsWith("all courses - canvas")
-    || state.elements.some(element => normalize(element.label) === "all courses");
+  return /^(?:all )?courses(?: -|$)/.test(window);
 }
 
 export function scopeNativeJevState(state: ComputerState): ComputerState {
   return {
     ...structuredClone(state),
-    elements: state.elements.filter(element => COURSES_LABEL.test(element.label ?? "")),
+    elements: state.elements.filter(element =>
+      ["AXLink", "AXButton", "AXTab", "AXMenuItem"].includes(element.role)
+      && COURSES_LABEL.test(normalize(element.label))),
   };
 }
 
@@ -98,6 +98,8 @@ export async function runNativeJev(
     const opened = await recorded.execute({ type: "open_url", url, browser: "Microsoft Edge" });
     if (!opened.success) return { result: opened, history: history.read() };
     await (options.waitAfterOpen ?? (waitSignal => delay(1_500, undefined, { signal: waitSignal })))(signal);
+    const focused = await recorded.execute({ type: "focus_app", app: "Microsoft Edge" });
+    if (!focused.success) return { result: focused, history: history.read() };
     const result = await runComputerLoop(
       goal,
       recorded,
@@ -134,6 +136,7 @@ export async function runNativeJev(
       {
         maxActions: 5,
         maxObservations: 15,
+        maxUnchangedObservations: 6,
         wait: options.waitBetweenObservations,
         validateState: state => state.activeApp === "Microsoft Edge"
           ? undefined : "Native Jev stopped because Microsoft Edge is not the active application.",

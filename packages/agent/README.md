@@ -179,9 +179,9 @@ npm run agent -- --native --jev "Open Courses"
 It opens only Temple Canvas, requires Microsoft Edge to remain active, permits at
 most five clicks and fifteen observations, and accepts only the exact goal
 `Open Courses`. Before any API call it removes unrelated browser/application
-controls and retains only labels containing the goal term Course/Courses. Exact
-visible Courses navigation is safe by deterministic policy. A fresh Courses page
-title or visible All Courses control verifies completion without another API call.
+controls and retains only navigation controls labeled exactly Courses or All Courses.
+Exact visible Courses navigation is safe by deterministic policy. A fresh Courses
+page title verifies completion without another API call.
 Other non-prohibited navigation choices require an explicit terminal confirmation
 and resume through atomic target validation; submission, editing, deletion,
 download, purchase, authentication, and account controls remain out of scope even
