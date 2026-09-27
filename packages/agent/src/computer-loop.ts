@@ -1,6 +1,12 @@
 import { setTimeout as delay } from "node:timers/promises";
 import type { ActionResult, ComputerAction, ComputerController, ComputerState } from "../../shared/src/types.js";
-import type { JevDecisionInput, NextActionChooser } from "./jev.js";
+import type { JevDecision, JevDecisionInput, NextActionChooser } from "./jev.js";
+
+export interface ModelActionContext {
+  goal: string;
+  state: ComputerState;
+  confidence: number;
+}
 
 export interface ComputerLoopOptions {
   maxActions?: number;
@@ -8,6 +14,8 @@ export interface ComputerLoopOptions {
   maxUnchangedObservations?: number;
   wait?: (milliseconds: number, signal: AbortSignal) => Promise<void>;
   observationDelayMs?: number;
+  onObservation?: (state: ComputerState, observation: number) => void;
+  onDecision?: (decision: JevDecision, observation: number) => void;
 }
 
 export type ComputerLoopResult = ActionResult & { message?: string };
@@ -41,7 +49,7 @@ export async function runComputerLoop(
   goal: string,
   computer: Pick<ComputerController, "getState">,
   chooser: NextActionChooser,
-  executeModelAction: (action: ComputerAction) => Promise<ActionResult>,
+  executeModelAction: (action: ComputerAction, context: ModelActionContext) => Promise<ActionResult>,
   signal: AbortSignal,
   options: ComputerLoopOptions = {},
 ): Promise<ComputerLoopResult> {
@@ -68,6 +76,7 @@ export async function runComputerLoop(
       const state = await computer.getState();
       observations++;
       signal.throwIfAborted();
+      options.onObservation?.(structuredClone(state), observations);
       if (!state.accessibilityTrusted) return fail("Accessibility permission is required before Jev can inspect controls.");
       if (state.truncated) return fail("The accessibility snapshot is incomplete; no action was executed.");
       if (expectedApp === undefined) expectedApp = state.activeApp;
@@ -87,6 +96,7 @@ export async function runComputerLoop(
 
       const decision = await chooser.choose({ goal, state } satisfies JevDecisionInput, signal);
       signal.throwIfAborted();
+      options.onDecision?.(structuredClone(decision), observations);
       if (decision.type === "done") return { success: true, message: "The visible state satisfies the goal." };
       if (decision.type === "ask_user") return fail(decision.reason === "low_confidence"
         ? "Jev was not confident enough to act. Clarify the goal and try again."
@@ -96,7 +106,11 @@ export async function runComputerLoop(
       if (actionsTaken >= maxActions) return fail("The Jev task reached its action limit before completion.");
       const invalid = validateSelectedAction(decision.action, state);
       if (invalid) return fail(invalid);
-      const result = await executeModelAction(structuredClone(decision.action));
+      const result = await executeModelAction(structuredClone(decision.action), {
+        goal,
+        state: structuredClone(state),
+        confidence: decision.confidence,
+      });
       signal.throwIfAborted();
       if (!result.success) return fail(result.error);
       actionsTaken++;

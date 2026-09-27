@@ -152,6 +152,20 @@ action executor must use Nora's safety and history boundary; tests prove that an
 unknown model-selected click produces confirmation rather than execution. No router,
 transport, or native helper path invokes this loop yet.
 
+Run the interactive mock demo with the ignored `.env.local` configuration:
+
+```sh
+npm run jev:demo -- "Open Courses"
+```
+
+It calls the real Jev API, but all observations and actions belong to
+`CanvasMockComputerController`. JSON-lines output identifies every synthetic
+observation, Jev decision and confidence, gate event, final result, and redacted
+history entry. `native` is always `false`. The only automatically safe action is an
+exact Courses navigation match in the synthetic Edge fixture; every other selected
+action goes through the unknown-effect confirmation policy and executes nothing in
+this non-interactive demo.
+
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.

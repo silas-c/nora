@@ -20,6 +20,7 @@ export class CanvasMockComputerController extends MockComputerController {
     const fixture = this.stage === "courses" ? courses : this.stage === "login" ? login : dashboard;
     const state: ComputerState = structuredClone(fixture);
     state.activeApp = this.activeApp;
+    if (this.stage === "courses") state.activeWindow = "Courses - Canvas";
     if (this.stage === "other") { state.activeWindow = "Mock browser"; state.elements = []; }
     this.generation++;
     state.elements.forEach((element, index) => { element.id = `mock-${this.generation}-${index + 1}`; });
