@@ -16,7 +16,7 @@ export function routeIntent(input: UserInput): Intent {
   // Match whole requests so unrelated or compound instructions cannot trigger an action.
   const request = text.replace(/^please /, "").replace(/ please$/, "");
   if (/^open canvas and go to (?:my )?courses$/.test(request)) return "OPEN_COURSES";
-  if (/^open (?:canvas|(?:my )?school(?:work| thing)?)(?: in (?:microsoft )?edge)?$/.test(request)) return "OPEN_CANVAS";
+  if (/^open (?:canvas|(?:my )?school(?:work| thing)?)(?: (?:in|on) (?:microsoft )?edge)?$/.test(request)) return "OPEN_CANVAS";
   if (/^(?:show(?: me)?|open|find) dog (?:photos|pictures)(?: on google)?$/.test(request)) return "OPEN_DOG_PHOTOS";
   if (/^open photos$/.test(request)) return "OPEN_PHOTOS";
   if (/^open (?:microsoft )?edge$/.test(request)) return "OPEN_EDGE";

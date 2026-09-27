@@ -102,7 +102,7 @@ public enum IntentEstimator {
         let request = AliasResolver.normalize(text)
         let routes: [(String, String)] = [
             (#"^open canvas and go to (?:my )?courses$"#, "OPEN_COURSES"),
-            (#"^open (?:canvas|(?:my )?school(?:work| thing)?)(?: in (?:microsoft )?edge)?$"#, "OPEN_SCHOOL"),
+            (#"^open (?:canvas|(?:my )?school(?:work| thing)?)(?: (?:in|on) (?:microsoft )?edge)?$"#, "OPEN_SCHOOL"),
             (#"^(?:show(?: me)?|open|find) dog (?:photos|pictures)(?: on google)?$"#, "OPEN_DOG_PHOTOS"),
             (#"^open photos$"#, "OPEN_PHOTOS"),
             (#"^open (?:microsoft )?edge$"#, "OPEN_INTERNET"),

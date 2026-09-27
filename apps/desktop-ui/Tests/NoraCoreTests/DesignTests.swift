@@ -83,6 +83,7 @@ struct InteractionCostTests {
 
     @Test func intentEstimatorMirrorsTheRouter() {
         #expect(IntentEstimator.intent(forText: "Please open my schoolwork in Microsoft Edge.") == "OPEN_SCHOOL")
+        #expect(IntentEstimator.intent(forText: "Open Canvas on Microsoft edge") == "OPEN_SCHOOL")
         #expect(IntentEstimator.intent(forText: "open canvas and go to my courses") == "OPEN_COURSES")
         #expect(IntentEstimator.intent(forText: "Show me dog pictures!") == "OPEN_DOG_PHOTOS")
         #expect(IntentEstimator.intent(forText: "open canvas now") == nil)

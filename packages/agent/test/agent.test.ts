@@ -7,6 +7,7 @@ test("text, voice and AAC inputs route to the same Canvas action", async () => {
   const inputs: UserInput[] = [
     { source: "text", text: "  Please OPEN Canvas in Edge! " },
     { source: "voice", text: "open my schoolwork" },
+    { source: "voice", text: "Open Canvas on Microsoft edge" },
     { source: "aac", intent: "OPEN_SCHOOL" },
     { source: "aac", intent: "OPEN_CANVAS" },
   ];
