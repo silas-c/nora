@@ -13,7 +13,8 @@
     "agent:server": "node dist/agent/src/server.js",
     "agent:confirmation-demo-server": "node dist/agent/src/confirmation-demo-server.js",
     "jev:smoke": "npm run build && node --env-file-if-exists=.env.local dist/agent/src/jev-smoke.js",
-    "jev:demo": "npm run build && node --env-file-if-exists=.env.local dist/agent/src/jev-demo.js"
+    "jev:demo": "npm run build && node --env-file-if-exists=.env.local dist/agent/src/jev-demo.js",
+    "jev:native-smoke": "npm run build && node --env-file-if-exists=.env.local dist/agent/src/native-jev-smoke.js"
   },
   "devDependencies": {
     "@types/node": "22.19.0",

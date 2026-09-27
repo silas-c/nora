@@ -184,6 +184,18 @@ download, purchase, authentication, and account controls remain out of scope eve
 with confirmation. The command is developer-only and does not change the UI
 JSON-lines protocol. `NORA_HELPER_PATH` may point to an explicitly built helper.
 
+After granting Accessibility permission to the rebuilt helper, run the real Jev
+native chain against disposable localhost content:
+
+```sh
+npm run jev:native-smoke
+```
+
+This opens Edge, sends only synthetic page controls to Jev, requires exactly one
+successful atomic Courses click in history, and verifies a fresh post-click window
+title. It accepts a conservative low-confidence stop after the verified click but
+never retries it. It does not access Canvas or any account.
+
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.
