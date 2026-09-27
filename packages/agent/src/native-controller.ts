@@ -3,9 +3,17 @@ import type { ActionResult, ComputerAction, ComputerController, ComputerState } 
 
 type Reply = Record<string, unknown> & { success: boolean };
 type Pending = { resolve: (reply: Reply) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
+type HelperRequest = ComputerAction | { type: "snapshot" } | (ComputerAction & {
+  expectedApp: string;
+  expectedWindow?: string;
+  expectedRole: string;
+  expectedLabel?: string;
+  expectedActions: string[];
+});
 
 function isState(reply: Reply): reply is Reply & ComputerState {
   return typeof reply.activeApp === "string"
+    && typeof reply.snapshotGeneration === "string"
     && (reply.activeWindow === undefined || typeof reply.activeWindow === "string")
     && typeof reply.accessibilityTrusted === "boolean"
     && typeof reply.truncated === "boolean"
@@ -30,10 +38,17 @@ export class NativeComputerController implements ComputerController {
   private closed = false;
   private exited: Promise<void> = Promise.resolve();
   private closing?: Promise<void>;
+  private latestSnapshot?: ComputerState;
 
   constructor(private readonly helperPath: string, private readonly timeoutMs = 10_000) {}
 
   async execute(action: ComputerAction): Promise<ActionResult> {
+    if ((action.type === "click" || (action.type === "type_text" && action.target))) {
+      const snapshot = this.latestSnapshot;
+      if (!snapshot) return { success: false, error: "A fresh native snapshot is required before a targeted action." };
+      return this.executeValidated(action, snapshot);
+    }
+    this.latestSnapshot = undefined;
     try {
       const reply = await this.request(action);
       return reply.success ? { success: true } : { success: false, error: reply.error as string };
@@ -42,8 +57,44 @@ export class NativeComputerController implements ComputerController {
     }
   }
 
+  async executeValidated(action: ComputerAction, expected: ComputerState): Promise<ActionResult> {
+    if (action.type !== "click" && !(action.type === "type_text" && action.target)) {
+      return { success: false, error: "Atomic target validation requires a targeted action." };
+    }
+    const generation = action.snapshotGeneration;
+    if (!generation || generation !== expected.snapshotGeneration
+      || generation !== this.latestSnapshot?.snapshotGeneration) {
+      return { success: false, error: "The native target snapshot is stale. Take a new snapshot and try again." };
+    }
+    const targetID = action.target;
+    const target = expected.elements.find(element => element.id === targetID);
+    const cachedTarget = this.latestSnapshot.elements.find(element => element.id === targetID);
+    if (!target || JSON.stringify(target) !== JSON.stringify(cachedTarget)
+      || expected.activeApp !== this.latestSnapshot.activeApp
+      || expected.activeWindow !== this.latestSnapshot.activeWindow) {
+      return { success: false, error: "The native target context changed. Take a new snapshot and try again." };
+    }
+    const request: HelperRequest = {
+      ...structuredClone(action),
+      expectedApp: expected.activeApp,
+      ...(expected.activeWindow === undefined ? {} : { expectedWindow: expected.activeWindow }),
+      expectedRole: target.role,
+      ...(target.label === undefined ? {} : { expectedLabel: target.label }),
+      expectedActions: [...target.actions],
+    };
+    // The helper consumes a generation before attempting its one atomic action.
+    this.latestSnapshot = undefined;
+    try {
+      const reply = await this.request(request);
+      return reply.success ? { success: true } : { success: false, error: reply.error as string };
+    } catch (error) {
+      return { success: false, error: (error as Error).message };
+    }
+  }
+
   async getState(): Promise<ComputerState> {
     // The helper's get_state is app-only; navigation needs its full snapshot command.
+    this.latestSnapshot = undefined;
     const reply = await this.request({ type: "snapshot" });
     if (!reply.success) throw new Error(reply.error as string);
     if (!isState(reply)) {
@@ -51,13 +102,16 @@ export class NativeComputerController implements ComputerController {
       this.abort(error);
       throw error;
     }
-    return {
+    const state: ComputerState = {
+      snapshotGeneration: reply.snapshotGeneration,
       activeApp: reply.activeApp,
       ...(reply.activeWindow === undefined ? {} : { activeWindow: reply.activeWindow }),
       accessibilityTrusted: reply.accessibilityTrusted,
       elements: reply.elements,
       truncated: reply.truncated,
     };
+    this.latestSnapshot = structuredClone(state);
+    return state;
   }
 
   close(): Promise<void> {
@@ -73,7 +127,7 @@ export class NativeComputerController implements ComputerController {
     return this.closing;
   }
 
-  private request(request: ComputerAction | { type: "snapshot" }): Promise<Reply> {
+  private request(request: HelperRequest): Promise<Reply> {
     const line = JSON.stringify(request) + "\n";
     const response = this.queue.then(() => {
       if (this.closed) throw new Error("macOS helper session is closed.");

@@ -18,6 +18,10 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
   const recordedComputer: ComputerController = {
     getState: () => computer.getState(),
     execute: action => history.record(action, () => computer.execute(action)),
+    ...(computer.executeValidated ? {
+      executeValidated: (action: Parameters<NonNullable<ComputerController["executeValidated"]>>[0], expected: Parameters<NonNullable<ComputerController["executeValidated"]>>[1]) =>
+        history.record(action, () => computer.executeValidated!(action, expected)),
+    } : {}),
   };
   const listeners = new Set<(event: AgentEvent) => void>();
   let busy = false;

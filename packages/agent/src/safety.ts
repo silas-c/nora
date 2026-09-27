@@ -7,6 +7,8 @@ export interface ActionProposal {
   effect?: ActionEffect;
   actingMessage: string;
   doneMessage: string;
+  /** Trusted state captured when a model selected this target; never accepted over transport. */
+  context?: ComputerState;
 }
 
 export function classifyAction(action: ComputerAction, effect: ActionEffect = "unknown"): RiskLevel {
@@ -61,16 +63,20 @@ export class ActionGate {
     const frozen = structuredClone(proposal);
     const risk = classifyAction(frozen.action, frozen.effect);
     if (risk === "safe") return this.execute(frozen);
-    let context: ComputerState | undefined;
+    let context: ComputerState | undefined = frozen.context;
     const action = frozen.action;
     if (targetOf(action) || ["keypress", "type_text", "scroll"].includes(action.type)) {
       // Untargeted edits/keyboard events cannot be bound to a specific control with
       // the current helper contract. Fail closed rather than approve a moving focus.
       if (!targetOf(action)) return failure("This input action needs a specific target before it can be confirmed.");
-      context = await this.computer.getState();
+      context ??= await this.computer.getState();
       if (!context.accessibilityTrusted || context.truncated) return failure("A complete accessible snapshot is required before confirmation.");
       const target = context.elements.find(e => e.id === targetOf(action));
       if (!target?.enabled) return failure("The action target is unavailable or stale. Select it again.");
+      if (action.type === "click" && context.snapshotGeneration
+        && action.snapshotGeneration !== context.snapshotGeneration) {
+        return failure("The action target is from a stale snapshot. Select it again.");
+      }
     }
     if (this.signal.aborted) return failure("Agent session is closed.");
     const id = randomUUID();
@@ -97,7 +103,8 @@ export class ActionGate {
     this.pending = undefined;
     clearTimeout(pending.timer);
     let invalid: string | undefined;
-    if (pending.context) {
+    const atomicContext = pending.context && this.computer.executeValidated ? pending.context : undefined;
+    if (pending.context && !atomicContext) {
       try {
         const current = await this.computer.getState();
         const oldTarget = pending.context.elements.find(e => e.id === targetOf(pending.proposal.action));
@@ -116,15 +123,17 @@ export class ActionGate {
       return failure(invalid);
     }
     this.emit({ type: "confirmation_resolved", confirmationId: id, reason: "approved" });
-    return this.execute(pending.proposal);
+    return this.execute(pending.proposal, atomicContext);
   }
 
-  private async execute(proposal: ActionProposal): Promise<AgentResult> {
+  private async execute(proposal: ActionProposal, expected?: ComputerState): Promise<AgentResult> {
     if (this.signal.aborted) return failure("Agent session is closed.");
     if (proposal.actingMessage) this.emit({ type: "acting", message: proposal.actingMessage });
     // A synchronous event subscriber may disconnect the session.
     if (this.signal.aborted) return failure("Agent session is closed.");
-    const result = await this.computer.execute(structuredClone(proposal.action));
+    const result = expected && this.computer.executeValidated
+      ? await this.computer.executeValidated(structuredClone(proposal.action), structuredClone(expected))
+      : await this.computer.execute(structuredClone(proposal.action));
     if (this.signal.aborted) return failure("Agent session is closed.");
     return result.success ? { success: true, message: proposal.doneMessage } : result;
   }

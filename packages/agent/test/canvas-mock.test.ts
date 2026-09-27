@@ -24,10 +24,11 @@ test("new snapshots invalidate old IDs and Courses appears only after a valid cl
   const old = (await controller.getState()).elements.find(e => e.label === "Courses")!;
   const current = await controller.getState();
   assert.ok(!current.elements.some(e => e.label === "All Courses"));
-  assert.equal((await controller.execute({ type: "click", target: old.id })).success, false);
+  assert.equal((await controller.execute({ type: "click", target: old.id, snapshotGeneration: "mock-generation-1" })).success, false);
   const target = current.elements.find(e => e.label === "Courses")!;
-  assert.equal((await controller.execute({ type: "click", target: target.id })).success, true);
-  assert.equal((await controller.execute({ type: "click", target: target.id })).success, false);
+  const action = { type: "click" as const, target: target.id, snapshotGeneration: current.snapshotGeneration };
+  assert.equal((await controller.execute(action)).success, true);
+  assert.equal((await controller.execute(action)).success, false);
   assert.ok((await controller.getState()).elements.some(e => e.label === "All Courses"));
 });
 
@@ -46,8 +47,9 @@ test("caller mutation cannot change a controller's valid click targets", async (
   const state = await controller.getState();
   const target = state.elements.find(e => e.label === "Courses")!;
   const id = target.id;
+  const snapshotGeneration = state.snapshotGeneration;
   target.id = "made-up";
   target.label = "Other action";
-  assert.equal((await controller.execute({ type: "click", target: "made-up" })).success, false);
-  assert.equal((await controller.execute({ type: "click", target: id })).success, true);
+  assert.equal((await controller.execute({ type: "click", target: "made-up", snapshotGeneration })).success, false);
+  assert.equal((await controller.execute({ type: "click", target: id, snapshotGeneration })).success, true);
 });

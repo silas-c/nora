@@ -10,6 +10,7 @@ struct ElementSnapshot: Encodable {
 }
 
 struct ComputerSnapshot {
+    let snapshotGeneration: String
     let activeApp: String
     let activeWindow: String?
     let elements: [ElementSnapshot]
@@ -44,12 +45,14 @@ final class SnapshotReader {
     private var enhancedPID: pid_t?
     private var snapshotPID: pid_t?
     private var snapshotWindowTitle: String?
+    private var snapshotGeneration: String?
     private var nextElementID = 1
 
     func read(_ app: NSRunningApplication) throws -> ComputerSnapshot {
         elementsByID.removeAll()
         snapshotPID = nil
         snapshotWindowTitle = nil
+        snapshotGeneration = nil
         guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
@@ -66,9 +69,13 @@ final class SnapshotReader {
         while true {
             let (snapshot, hasWebArea) = try readOnce(app, appElement)
             if !isEdge || hasWebArea {
+                let generation = UUID().uuidString
                 snapshotPID = app.processIdentifier
                 snapshotWindowTitle = snapshot.activeWindow
-                return snapshot
+                snapshotGeneration = generation
+                return ComputerSnapshot(snapshotGeneration: generation, activeApp: snapshot.activeApp,
+                                        activeWindow: snapshot.activeWindow, elements: snapshot.elements,
+                                        truncated: snapshot.truncated)
             }
             if Date() >= deadline {
                 elementsByID.removeAll()
@@ -86,11 +93,12 @@ final class SnapshotReader {
         enhancedPID = nil
     }
 
-    func click(_ id: String) throws {
-        let element = try target(id)
+    func click(_ id: String, generation: String, expected: ExpectedTarget? = nil) throws {
+        let element = try target(id, generation: generation, expected: expected)
         let role: String = attribute(element, kAXRoleAttribute) ?? ""
         if ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"].contains(role),
            AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success {
+            consumeSnapshot()
             return
         }
         var names: CFArray?
@@ -98,14 +106,15 @@ final class SnapshotReader {
               (names as? [String])?.contains("AXPress") == true else {
             throw ControlError(message: "Target \(id) does not support clicking")
         }
+        consumeSnapshot()
         let status = AXUIElementPerformAction(element, kAXPressAction as CFString)
         guard status == .success else {
             throw ControlError(message: "Could not click \(id) (Accessibility error \(status.rawValue))")
         }
     }
 
-    func setText(_ text: String, in id: String) throws {
-        let element = try target(id)
+    func setText(_ text: String, in id: String, generation: String, expected: ExpectedTarget? = nil) throws {
+        let element = try target(id, generation: generation, expected: expected)
         let role: String = attribute(element, kAXRoleAttribute) ?? ""
         guard ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"].contains(role) else {
             throw ControlError(message: "Target \(id) is not a text input")
@@ -115,15 +124,24 @@ final class SnapshotReader {
               settable.boolValue else {
             throw ControlError(message: "Target \(id) does not allow setting text")
         }
+        consumeSnapshot()
         let status = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFString)
         guard status == .success else {
             throw ControlError(message: "Could not set text in \(id) (Accessibility error \(status.rawValue))")
         }
     }
 
-    private func target(_ id: String) throws -> AXUIElement {
+    private func consumeSnapshot() {
+        elementsByID.removeAll()
+        snapshotPID = nil
+        snapshotWindowTitle = nil
+        snapshotGeneration = nil
+    }
+
+    private func target(_ id: String, generation: String, expected: ExpectedTarget?) throws -> AXUIElement {
         guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
         guard let app = NSWorkspace.shared.frontmostApplication,
+              generation == snapshotGeneration,
               app.processIdentifier == snapshotPID,
               let element = elementsByID[id] else {
             throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
@@ -139,6 +157,23 @@ final class SnapshotReader {
         }
         let enabled: Bool = attribute(element, kAXEnabledAttribute) ?? true
         guard enabled else { throw ControlError(message: "Target \(id) is disabled") }
+        if let expected {
+            let role: String = attribute(element, kAXRoleAttribute) ?? "unknown"
+            var names: CFArray?
+            let status = AXUIElementCopyActionNames(element, &names)
+            let actions = status == .success ? (names as? [String] ?? []) : []
+            let title: String? = attribute(element, kAXTitleAttribute)
+            let description: String? = attribute(element, kAXDescriptionAttribute)
+            let linkValue: String? = role == "AXLink" ? attribute(element, kAXValueAttribute) : nil
+            let label = [title, description, linkValue].compactMap { $0 }.first { !$0.isEmpty }
+            guard app.localizedName == expected.app,
+                  currentTitle == expected.window,
+                  role == expected.role,
+                  label == expected.label,
+                  Set(actions) == Set(expected.actions) else {
+                throw ControlError(message: "Target \(id) changed after it was selected. Take a new snapshot and try again.")
+            }
+        }
         return element
     }
 
@@ -194,6 +229,7 @@ final class SnapshotReader {
         }
 
         return (ComputerSnapshot(
+            snapshotGeneration: "pending",
             activeApp: app.localizedName ?? "Unknown",
             activeWindow: title,
             elements: elements,

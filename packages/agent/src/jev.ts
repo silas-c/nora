@@ -72,7 +72,11 @@ export function prepareJevDecision(input: JevDecisionInput): PreparedJevDecision
     const option = `action_${String(index).padStart(3, "0")}`;
     const label = clean(element.label ?? "", 200);
     const supported = element.actions.filter(action => action === "AXPress");
-    actions.set(option, { type: "click", target: element.id });
+    actions.set(option, {
+      type: "click",
+      target: element.id,
+      ...(input.state.snapshotGeneration ? { snapshotGeneration: input.state.snapshotGeneration } : {}),
+    });
     return { option, role: clean(element.role, 80), label, actions: supported };
   });
   const criteria: Record<string, string> = {};

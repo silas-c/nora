@@ -16,6 +16,7 @@ export interface ComputerLoopOptions {
   observationDelayMs?: number;
   onObservation?: (state: ComputerState, observation: number) => void;
   onDecision?: (decision: JevDecision, observation: number) => void;
+  validateState?: (state: ComputerState) => string | undefined;
 }
 
 export type ComputerLoopResult = ActionResult & { message?: string };
@@ -37,6 +38,9 @@ function validateSelectedAction(action: ComputerAction, state: ComputerState): s
   const target = state.elements.find(element => element.id === action.target);
   if (!target?.enabled || !target.actions.includes("AXPress")) {
     return "Jev selected an unavailable or stale control; no action was executed.";
+  }
+  if (state.snapshotGeneration && action.snapshotGeneration !== state.snapshotGeneration) {
+    return "Jev selected a control from a stale snapshot; no action was executed.";
   }
   return undefined;
 }
@@ -79,6 +83,8 @@ export async function runComputerLoop(
       options.onObservation?.(structuredClone(state), observations);
       if (!state.accessibilityTrusted) return fail("Accessibility permission is required before Jev can inspect controls.");
       if (state.truncated) return fail("The accessibility snapshot is incomplete; no action was executed.");
+      const stateProblem = options.validateState?.(structuredClone(state));
+      if (stateProblem) return fail(stateProblem);
       if (expectedApp === undefined) expectedApp = state.activeApp;
       else if (state.activeApp !== expectedApp) return fail("The active application changed during the Jev task; no further action was executed.");
 

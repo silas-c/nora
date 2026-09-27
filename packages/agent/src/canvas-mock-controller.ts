@@ -23,6 +23,7 @@ export class CanvasMockComputerController extends MockComputerController {
     if (this.stage === "courses") state.activeWindow = "Courses - Canvas";
     if (this.stage === "other") { state.activeWindow = "Mock browser"; state.elements = []; }
     this.generation++;
+    state.snapshotGeneration = `mock-generation-${this.generation}`;
     state.elements.forEach((element, index) => { element.id = `mock-${this.generation}-${index + 1}`; });
     this.latest = structuredClone(state);
     return state;
@@ -39,6 +40,9 @@ export class CanvasMockComputerController extends MockComputerController {
       this.activeApp = action.app;
       this.latest = undefined;
     } else if (action.type === "click") {
+      if (!action.snapshotGeneration || action.snapshotGeneration !== this.latest?.snapshotGeneration) {
+        return { success: false, error: "Mock target generation is stale. Take a new snapshot." };
+      }
       const target = this.latest?.elements.find(e => e.id === action.target);
       if (!target) return { success: false, error: "Mock target is stale. Take a new snapshot." };
       if (!target.enabled || !target.actions.includes("AXPress")) return { success: false, error: "Mock target cannot be pressed." };
@@ -47,5 +51,15 @@ export class CanvasMockComputerController extends MockComputerController {
       this.latest = undefined;
     }
     return { success: true };
+  }
+
+  async executeValidated(action: ComputerAction, expected: ComputerState): Promise<ActionResult> {
+    const latest = this.latest;
+    if (!latest || expected.snapshotGeneration !== latest.snapshotGeneration
+      || expected.activeApp !== latest.activeApp
+      || expected.activeWindow !== latest.activeWindow) {
+      return { success: false, error: "Mock target context changed. Take a new snapshot." };
+    }
+    return this.execute(action);
   }
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createAgent } from "../src/agent.js";
 import { MockComputerController } from "../src/mock-controller.js";
-import { classifyAction } from "../src/safety.js";
+import { ActionGate, classifyAction } from "../src/safety.js";
 import type { Skill } from "../src/skills.js";
 import type { ActionResult, AgentEvent, AgentResult, ComputerAction, ComputerState, PendingConfirmation } from "../../shared/src/types.js";
 
@@ -138,6 +138,37 @@ test("stable targeted mock context permits one approval; untargeted edits fail c
   const result = await unsafe.agent.submit(input);
   assert.ok(!result.success && !result.requiresConfirmation);
   assert.equal(unsafe.computer.actions.length, 0);
+});
+
+test("atomic native-style validation confirms without taking an invalidating snapshot", async () => {
+  const context: ComputerState = {
+    snapshotGeneration: "generation-1",
+    activeApp: "Microsoft Edge", activeWindow: "Canvas", accessibilityTrusted: true, truncated: false,
+    elements: [{ id: "e1", role: "AXButton", label: "Submit", enabled: true, actions: ["AXPress"] }],
+  };
+  let reads = 0; let ordinaryExecutions = 0; let validatedExecutions = 0;
+  const lifecycle = new AbortController();
+  const gate = new ActionGate({
+    getState: async () => { reads++; return structuredClone(context); },
+    execute: async () => { ordinaryExecutions++; return { success: true }; },
+    executeValidated: async (action, expected) => {
+      validatedExecutions++;
+      assert.deepEqual(action, { type: "click", target: "e1", snapshotGeneration: "generation-1" });
+      assert.deepEqual(expected, context);
+      return { success: true };
+    },
+  }, () => {}, lifecycle.signal);
+  const request = pending(await gate.run({
+    action: { type: "click", target: "e1", snapshotGeneration: "generation-1" },
+    context,
+    effect: "submission",
+    actingMessage: "Submit", doneMessage: "Submitted",
+  }));
+  assert.equal(reads, 0);
+  assert.equal((await gate.confirm(request.confirmationId, true)).success, true);
+  assert.equal(reads, 0);
+  assert.equal(ordinaryExecutions, 0);
+  assert.equal(validatedExecutions, 1);
 });
 
 test("disposal during context validation prevents execution", async () => {

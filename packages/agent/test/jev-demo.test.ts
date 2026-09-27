@@ -21,7 +21,7 @@ test("interactive mock demo executes one bounded Courses action and records hist
   const demo = await runJevMockDemo(
     "Open Courses",
     new ScriptedChooser([
-      { type: "action", action: { type: "click", target: "mock-1-2" }, confidence: 0.99 },
+      { type: "action", action: { type: "click", target: "mock-1-2", snapshotGeneration: "mock-generation-1" }, confidence: 0.99 },
       { type: "done", confidence: 0.99 },
     ]),
     new AbortController().signal,
@@ -30,7 +30,9 @@ test("interactive mock demo executes one bounded Courses action and records hist
   );
   assert.equal(demo.result.success, true);
   assert.equal(demo.history.length, 1);
-  assert.deepEqual(demo.history[0]?.action, { type: "click", target: "mock-1-2" });
+  assert.deepEqual(demo.history[0]?.action, {
+    type: "click", target: "mock-1-2", snapshotGeneration: "mock-generation-1",
+  });
   assert.ok(output.some(value => JSON.stringify(value).includes('"kind":"jev_decision"')));
   assert.ok(output.every(value => !JSON.stringify(value).includes('"native":true')));
 });

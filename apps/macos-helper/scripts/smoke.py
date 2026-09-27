@@ -2,6 +2,7 @@
 """Exercise the Swift helper against a disposable page in Microsoft Edge."""
 
 import json
+import os
 import re
 import subprocess
 import threading
@@ -40,11 +41,18 @@ class PageHandler(BaseHTTPRequestHandler):
 
 def main():
     helper_dir = Path(__file__).resolve().parents[1]
-    subprocess.run(["swift", "build"], cwd=helper_dir, check=True)
+    helper_override = os.environ.get("NORA_HELPER_PATH")
+    if helper_override:
+        helper_path = Path(helper_override).resolve()
+        if not helper_path.is_file():
+            raise AssertionError(f"NORA_HELPER_PATH is not a file: {helper_path}")
+    else:
+        subprocess.run(["swift", "build"], cwd=helper_dir, check=True)
+        helper_path = helper_dir / ".build/debug/mac-helper"
     server = ThreadingHTTPServer(("127.0.0.1", 0), PageHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     process = subprocess.Popen(
-        [str(helper_dir / ".build/debug/mac-helper")],
+        [str(helper_path)],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
     )
 
@@ -63,6 +71,21 @@ def main():
 
     def find(state, label):
         return next(item for item in state["elements"] if item.get("label") == label)
+
+    def targeted(state, action_type, label, **values):
+        element = find(state, label)
+        request = {
+            "type": action_type,
+            "target": element["id"],
+            "snapshotGeneration": state["snapshotGeneration"],
+            "expectedApp": state["activeApp"],
+            "expectedWindow": state.get("activeWindow"),
+            "expectedRole": element["role"],
+            "expectedLabel": element.get("label"),
+            "expectedActions": element["actions"],
+            **values,
+        }
+        return request
 
     def wait_for(label):
         for _ in range(15):
@@ -91,16 +114,17 @@ def main():
             raise AssertionError("Microsoft Edge did not launch")
         state = wait_for("Test input")
         assert state["activeApp"] == "Microsoft Edge", state["activeApp"]
-        field = find(state, "Test input")["id"]
-        show = find(state, "Show typed value")["id"]
-        disabled = find(state, "Disabled button")["id"]
-        assert "disabled" in call({"type": "click", "target": disabled})["error"]
-        ok({"type": "type_text", "target": field, "text": "hello"})
-        ok({"type": "click", "target": show})
+        assert state["snapshotGeneration"]
+        assert "disabled" in call(targeted(state, "click", "Disabled button"))["error"]
+        state = wait_for("Test input")
+        edit = targeted(state, "type_text", "Test input", text="hello")
+        ok(edit)
+        assert "stale" in call(edit)["error"]
+        state = wait_for("Show typed value")
+        ok(targeted(state, "click", "Show typed value"))
         state = wait_for("Typed: hello")
-        assert "stale" in call({"type": "click", "target": show})["error"]
 
-        ok({"type": "click", "target": find(state, "Test input")["id"]})
+        ok(targeted(state, "click", "Test input"))
         for _ in range(10):
             response = call({"type": "type_text", "text": "keyboard"})
             if response["success"]:
@@ -109,12 +133,13 @@ def main():
             time.sleep(0.1)
         else:
             raise AssertionError("Text input did not receive focus")
-        ok({"type": "click", "target": find(state, "Typed: hello")["id"]})
+        state = wait_for("Typed: hello")
+        ok(targeted(state, "click", "Typed: hello"))
         state = wait_for("Typed: keyboard")
-        ok({"type": "click", "target": find(state, "Test input")["id"]})
+        ok(targeted(state, "click", "Test input"))
         ok({"type": "keypress", "key": "A", "modifiers": ["CMD"]})
         state = wait_for("Key: CMD+a")
-        ok({"type": "click", "target": find(state, "Click me")["id"]})
+        ok(targeted(state, "click", "Click me"))
         wait_for("Clicked")
 
         ok({"type": "scroll", "direction": "down", "amount": 4})
@@ -128,8 +153,8 @@ def main():
         else:
             raise AssertionError("Page did not scroll down and right")
 
-        next_id = find(state, "Next page")["id"]
-        ok({"type": "click", "target": next_id})
+        next_request = targeted(state, "click", "Next page")
+        ok(next_request)
         for _ in range(15):
             state = ok({"type": "snapshot"})
             if state["activeWindow"].startswith("Nora Next Page"):
@@ -137,8 +162,8 @@ def main():
             time.sleep(0.2)
         else:
             raise AssertionError("Navigation did not complete")
-        assert "stale" in call({"type": "click", "target": next_id})["error"]
-        print("PASS: snapshot, click, text, keypress, scroll, navigation, and errors")
+        assert "stale" in call(next_request)["error"]
+        print("PASS: generated snapshots, one-shot validated targets, text, keypress, scroll, navigation, and errors")
     finally:
         process.stdin.close()
         process.wait(timeout=5)

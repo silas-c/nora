@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { NativeComputerController } from "../src/native-controller.js";
 
 const action = { type: "open_url" as const, url: "https://canvas.temple.edu", browser: "Microsoft Edge" };
-const state = { activeApp: "Microsoft Edge", activeWindow: "Canvas", accessibilityTrusted: true,
+const state = { snapshotGeneration: "generation-1", activeApp: "Microsoft Edge", activeWindow: "Canvas", accessibilityTrusted: true,
   elements: [{ id: "e1", role: "AXLink", label: "Courses", enabled: true, actions: ["AXPress"] }], truncated: false };
 const lines = 'import { createInterface } from "node:readline"; const lines = createInterface({input:process.stdin});';
 
@@ -32,13 +32,37 @@ test("snapshot then click share the same helper process and preserve IDs", async
         snapshotTaken = true;
         console.log(JSON.stringify({ success:true, ...${JSON.stringify(state)} }));
       } else {
-        const valid = snapshotTaken && request.type === 'click' && request.target === 'e1';
+        const valid = snapshotTaken && request.type === 'click' && request.target === 'e1'
+          && request.snapshotGeneration === 'generation-1' && request.expectedApp === 'Microsoft Edge'
+          && request.expectedWindow === 'Canvas' && request.expectedRole === 'AXLink'
+          && request.expectedLabel === 'Courses' && request.expectedActions[0] === 'AXPress';
         console.log(JSON.stringify(valid ? {success:true} : {success:false,error:'Stale target'}));
       }
     }`, async controller => {
     const snapshot = await controller.getState();
     assert.deepEqual(snapshot, state);
-    assert.deepEqual(await controller.execute({ type: "click", target: snapshot.elements[0].id }), { success: true });
+    const targeted = { type: "click" as const, target: snapshot.elements[0].id, snapshotGeneration: snapshot.snapshotGeneration };
+    assert.deepEqual(await controller.execute(targeted), { success: true });
+    assert.deepEqual(await controller.execute(targeted), {
+      success: false, error: "A fresh native snapshot is required before a targeted action.",
+    });
+  });
+});
+
+test("a newer snapshot invalidates an older native generation before helper execution", async () => {
+  await withHelper(`${lines}
+    let generation = 0;
+    for await (const line of lines) {
+      const request = JSON.parse(line);
+      if (request.type !== 'snapshot') throw new Error('targeted action must be rejected locally');
+      generation++;
+      console.log(JSON.stringify({ success:true, ...${JSON.stringify(state)}, snapshotGeneration:'generation-'+generation }));
+    }`, async controller => {
+    const old = await controller.getState();
+    await controller.getState();
+    assert.deepEqual(await controller.executeValidated({
+      type: "click", target: old.elements[0].id, snapshotGeneration: old.snapshotGeneration,
+    }, old), { success: false, error: "The native target snapshot is stale. Take a new snapshot and try again." });
   });
 });
 

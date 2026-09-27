@@ -46,6 +46,7 @@ export async function runJevMockDemo(
       async (action, context): Promise<ActionResult> => {
         const gated = await gate.run({
           action,
+          context: context.state,
           effect: isSafeMockCoursesNavigation(action, context) ? "navigation" : "unknown",
           actingMessage: "Executing the bounded mock action…",
           doneMessage: "Mock action completed.",

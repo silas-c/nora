@@ -51,7 +51,11 @@ export async function navigateCourses(
       signal.throwIfAborted();
       emit({ type: "acting", message: "Opening the visible Courses control…" });
       allCoursesBeforeClick = allCourses;
-      const result = await execute({ type: "click", target: candidates[0].id });
+      const result = await execute({
+        type: "click",
+        target: candidates[0].id,
+        ...(state.snapshotGeneration ? { snapshotGeneration: state.snapshotGeneration } : {}),
+      });
       if (!result.success) return fail(result.error);
       clicked = true;
     }

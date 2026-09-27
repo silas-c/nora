@@ -7,6 +7,12 @@ struct Request: Decodable {
     let browser: String?
     let app: String?
     let target: String?
+    let snapshotGeneration: String?
+    let expectedApp: String?
+    let expectedWindow: String?
+    let expectedRole: String?
+    let expectedLabel: String?
+    let expectedActions: [String]?
     let text: String?
     let key: String?
     let modifiers: [String]?
@@ -18,6 +24,7 @@ struct Response: Encodable {
     let success: Bool
     var error: String? = nil
     var activeApp: String? = nil
+    var snapshotGeneration: String? = nil
     var activeWindow: String? = nil
     var accessibilityTrusted: Bool? = nil
     var elements: [ElementSnapshot]? = nil
@@ -28,6 +35,22 @@ struct Response: Encodable {
     static func failure(_ message: String) -> Response {
         Response(success: false, error: message)
     }
+}
+
+struct ExpectedTarget {
+    let app: String
+    let window: String?
+    let role: String
+    let label: String?
+    let actions: [String]
+}
+
+func expectedTarget(_ request: Request) -> ExpectedTarget? {
+    guard let app = request.expectedApp,
+          let role = request.expectedRole,
+          let actions = request.expectedActions else { return nil }
+    return ExpectedTarget(app: app, window: request.expectedWindow, role: role,
+                          label: request.expectedLabel, actions: actions)
 }
 
 func runOpen(_ arguments: [String]) -> Response {
@@ -109,7 +132,8 @@ func runOpen(_ arguments: [String]) -> Response {
         }
         do {
             let snapshot = try snapshotReader.read(app)
-            return Response(success: true, activeApp: snapshot.activeApp, activeWindow: snapshot.activeWindow,
+            return Response(success: true, activeApp: snapshot.activeApp, snapshotGeneration: snapshot.snapshotGeneration,
+                            activeWindow: snapshot.activeWindow,
                             accessibilityTrusted: true, elements: snapshot.elements, truncated: snapshot.truncated)
         } catch {
             return Response(success: false, error: error.localizedDescription,
@@ -117,9 +141,12 @@ func runOpen(_ arguments: [String]) -> Response {
         }
 
     case "click":
-        guard let target = request.target else { return .failure("click requires a target ID") }
+        guard let target = request.target,
+              let generation = request.snapshotGeneration else {
+            return .failure("click requires a target ID and snapshotGeneration")
+        }
         do {
-            try snapshotReader.click(target)
+            try snapshotReader.click(target, generation: generation, expected: expectedTarget(request))
             return .ok
         } catch {
             return .failure(error.localizedDescription)
@@ -129,7 +156,10 @@ func runOpen(_ arguments: [String]) -> Response {
         guard let text = request.text else { return .failure("type_text requires text") }
         do {
             if let target = request.target {
-                try snapshotReader.setText(text, in: target)
+                guard let generation = request.snapshotGeneration else {
+                    return .failure("targeted type_text requires snapshotGeneration")
+                }
+                try snapshotReader.setText(text, in: target, generation: generation, expected: expectedTarget(request))
             } else {
                 try typeFocusedText(text)
             }

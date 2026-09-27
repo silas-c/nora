@@ -102,14 +102,17 @@ const controller = new NativeComputerController(absoluteHelperPath);
 try {
   const state = await controller.getState();
   // A decision layer can select an enabled element from state.elements here,
-  // then call controller.execute({ type: "click", target: element.id }).
+  // then call controller.execute({ type: "click", target: element.id,
+  //   snapshotGeneration: state.snapshotGeneration }).
 } finally {
   await controller.close();
 }
 ```
 
-Snapshot IDs only work in the same session and become stale after another snapshot
-or window change. Transport failures, invalid responses, and timeouts end the
+Native snapshot generations are one-shot. A targeted action atomically validates
+the generation, app/window, role, label, enabled state, and supported actions, then
+consumes the generation before attempting execution. Replay, another snapshot, or
+changed context fails stale. Transport failures, invalid responses, and timeouts end the
 session; queued requests fail. Actions are never automatically retried because
 they may already have run. Create a new controller and take a new snapshot before
 resuming navigation. Ordinary helper errors do not end the session.
@@ -139,9 +142,8 @@ node --env-file=.env.local dist/agent/src/jev-smoke.js
 
 Run `npm run build` first. A successful response prints JSON containing
 `"synthetic":true` and `"executed":false`; the smoke command never invokes a
-controller. The real bounded computer-use loop is tracked in #16. Do not connect a
-Jev-selected action to the native helper until #17 provides stable target
-revalidation across snapshots.
+controller. The bounded loop is tracked in #16; native target generations and
+atomic confirmation execution are tracked in #17.
 
 The mock-first `runComputerLoop` foundation for #16 is also available as an injected
 API. It caps actions and observations, asks the chooser only once per changed state,
@@ -149,8 +151,8 @@ polls delayed post-action updates without blindly retrying, and stops on unchang
 screens, changed applications, permission/truncation errors, invalid targets,
 controller failures, cancellation, or uncertain/non-action decisions. Its injected
 action executor must use Nora's safety and history boundary; tests prove that an
-unknown model-selected click produces confirmation rather than execution. No router,
-transport, or native helper path invokes this loop yet.
+unknown model-selected click produces confirmation rather than execution. The
+ordinary router and desktop transport do not invoke this loop.
 
 Run the interactive mock demo with the ignored `.env.local` configuration:
 
@@ -166,13 +168,29 @@ exact Courses navigation match in the synthetic Edge fixture; every other select
 action goes through the unknown-effect confirmation policy and executes nothing in
 this non-interactive demo.
 
+The explicit native developer route is separate from ordinary intent routing:
+
+```sh
+swift build --package-path apps/macos-helper
+npm run agent -- --native --jev "Open Courses"
+```
+
+It opens only Temple Canvas, requires Microsoft Edge to remain active, permits at
+most five clicks and fifteen observations, and accepts only the exact goal
+`Open Courses`. Exact visible Courses navigation is safe by deterministic policy.
+Other non-prohibited navigation choices require an explicit terminal confirmation
+and resume through atomic target validation; submission, editing, deletion,
+download, purchase, authentication, and account controls remain out of scope even
+with confirmation. The command is developer-only and does not change the UI
+JSON-lines protocol. `NORA_HELPER_PATH` may point to an explicitly built helper.
+
 ## Next milestones
 
 - Verify the Courses workflow on the target Canvas account.
 - Complete the teammate-owned UI connection, including its Cancel/Confirm controls,
   using the production and mock-only server commands below.
-- Complete the mock-only bounded Jev loop in #16, then coordinate stable native
-  target revalidation with Silas under #17.
+- Grant Accessibility to the newly built helper and complete the localhost then
+  live-Canvas native Jev acceptance sequence for #17.
 
 The agent supports confirmation through `agent.confirm()` and the desktop transport.
 The normal router, server, and deterministic skills do not construct the Jev client
@@ -304,13 +322,13 @@ and the decision result carry the decision request ID. Remove the prompt when
 resolved; wait for the decision result before claiming execution succeeded.
 On disconnect, dismiss all prompts locally; the server cancels their approvals.
 
-Targeted approvals require a complete snapshot and validate app, window, ID,
-label, role, enabled state, and actions again before execution. The current Swift
-helper changes IDs on every snapshot, so native targeted approvals conservatively
-invalidate rather than guess a replacement target. Untargeted sensitive keyboard
-or text edits are refused because their focus cannot be bound safely with the
-current contract. These limitations do not affect known safe navigation. Extend
-stable target validation with Silas before exposing sensitive native editing.
+Targeted approvals require a complete snapshot and validate generation, app,
+window, ID, label, role, enabled state, and actions atomically before execution.
+The generation is consumed before the helper attempts the action, so approval and
+transport replay cannot execute it twice. Untargeted sensitive keyboard or text
+edits remain refused because their focus cannot be bound safely. Native Jev also
+keeps submission, editing, deletion, download, purchase, authentication, and
+account controls outside its navigation-only scope.
 
 Mock-only interactive terminal demonstration; no helper, Photos library, or
 filesystem changes:
@@ -363,9 +381,9 @@ Never map untrusted request fields to skill effects or executable actions.
   A separate mock-only JSON-lines server is available for the teammate-owned
   Cancel/Confirm UI. Full UI acceptance remains pending until that UI is present.
 
-The shipped agent routes remain deterministic. The bounded Jev adapter is currently
-exercised only by tests and the non-executing synthetic smoke entry point. Generated
-files in `dist/` are build artifacts; edit `packages/agent/src`.
+The shipped product routes remain deterministic. Jev is reachable only through
+the explicit `jev:smoke`, `jev:demo`, and `--native --jev` developer commands.
+Generated files in `dist/` are build artifacts; edit `packages/agent/src`.
 
 ## Action history — Person 2 task P2-5
 
@@ -410,7 +428,8 @@ unverified, deferred, and optional work from the broader engineering plan.
 The CLI and server default to `CanvasMockComputerController`, which uses the
 synthetic dashboard, Courses, and login fixtures. Opening Canvas resets the mock
 dashboard; a valid Courses click reveals All Courses. Every snapshot replaces
-its element IDs, and stale IDs fail, matching the native session constraint.
+its generation and element IDs, and replay/stale targets fail, matching the native
+one-action-per-snapshot constraint.
 
 ```sh
 npm run agent -- --history "Open Canvas and go to Courses"

@@ -5,8 +5,8 @@ export type UserInput =
 export type ComputerAction =
   | { type: "open_url"; url: string; browser?: string }
   | { type: "launch_app" | "focus_app"; app: string }
-  | { type: "click"; target: string }
-  | { type: "type_text"; target?: string; text: string }
+  | { type: "click"; target: string; snapshotGeneration?: string }
+  | { type: "type_text"; target?: string; snapshotGeneration?: string; text: string }
   | { type: "keypress"; key: string; modifiers?: string[] }
   | { type: "scroll"; direction: "up" | "down" | "left" | "right"; amount?: number };
 
@@ -19,6 +19,8 @@ export interface UIElement {
 }
 
 export interface ComputerState {
+  /** Required for native targeted actions; synthetic controllers may omit it. */
+  snapshotGeneration?: string;
   activeApp: string;
   activeWindow?: string;
   accessibilityTrusted: boolean;
@@ -34,6 +36,8 @@ export interface ComputerController {
   /** Full snapshot; rejects if permission is denied or state is unavailable. */
   getState(): Promise<ComputerState>;
   execute(action: ComputerAction): Promise<ActionResult>;
+  /** Atomically revalidates the captured context and executes one targeted action. */
+  executeValidated?(action: ComputerAction, expected: ComputerState): Promise<ActionResult>;
 }
 
 export type RiskLevel = "safe" | "sensitive" | "destructive";

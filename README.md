@@ -30,7 +30,7 @@ On failure:
 {"success":false,"error":"A useful error message"}
 ```
 
-The helper accepts `http` and `https` URLs. Omit `browser` to use the default browser. See [the helper README](apps/macos-helper/README.md) for all actions and the snapshot response. `get_state` reports the active app and Accessibility permission; `snapshot` provides temporary element IDs for `click` and targeted `type_text`.
+The helper accepts `http` and `https` URLs. Omit `browser` to use the default browser. See [the helper README](apps/macos-helper/README.md) for all actions and the snapshot response. `get_state` reports the active app and Accessibility permission; `snapshot` provides a one-shot generation token plus temporary element IDs for `click` and targeted `type_text`. Native targeted actions are atomically rejected if the generation, app, window, or selected control changed.
 
 ## Build and run on macOS
 
@@ -53,4 +53,5 @@ This should return a JSON error about requiring an `http` or `https` URL.
 The [LICENSE](LICENSE) reserves rights in the project materials. Team members authorized by Silas Carvalho may work on the project for development and hackathon presentation.
 
 An optional bounded Jev adapter is under development in issues #15–#17. It is not
-part of the normal deterministic routes and does not execute native actions yet.
+part of the normal deterministic routes. Native model-selected navigation is
+available only through the constrained `--native --jev` developer command.

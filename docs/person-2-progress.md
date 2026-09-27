@@ -13,7 +13,7 @@ GitHub issue has passed acceptance. Continue using deterministic behavior first.
 | [#2: Canvas skill](https://github.com/silas-c/nora/issues/2) | **Closed as completed.** The repository owner recorded text/AAC parity, 50 passing tests at closure time, unknown/failure handling, and a native Canvas-open exercise. The current suite has 62 passing tests. | None. |
 | [#6: UI integration](https://github.com/silas-c/nora/issues/6) | Persistent helper, JSON-lines transport, request IDs, lifecycle cleanup, client example, protocol documentation, and UI acceptance checklist are implemented. | The UI is not present in this checkout or any fetched remote branch. Interface teammate connects School/text controls and verifies both UI paths. |
 | [#7: Courses navigation](https://github.com/silas-c/nora/issues/7) | **Closed as completed.** The repository owner recorded 50 passing tests at closure time, a native localhost Courses smoke pass through the Swift helper and Edge, and live Canvas verification with Courses visible. The current suite has 62 passing tests and preserves text/AAC parity, ten-observation maximum, and one-click maximum. | None. This Codex process still lacks its own Accessibility grant, but that is not contrary evidence to the owner's completed native acceptance run. |
-| [#9: Confirmation](https://github.com/silas-c/nora/issues/9) | Risk gate, immutable single-use approvals, expiry/cancel/disconnect handling, protocol, interactive demo, and separate mock-only JSON-lines server are implemented. The child-process regression proves cancel = 0 actions, approval = 1, replay = 0 additional actions. | Interface teammate connects exact-action Cancel/Confirm UI to the demo server and validates expiry/disconnect rendering. Native sensitive targeted actions remain limited by temporary IDs; do not claim them verified. |
+| [#9: Confirmation](https://github.com/silas-c/nora/issues/9) | Risk gate, immutable single-use approvals, expiry/cancel/disconnect handling, protocol, interactive demo, and separate mock-only JSON-lines server are implemented. Atomic native-style confirmation tests prove approval uses the captured generation without an invalidating snapshot. | Interface teammate connects exact-action Cancel/Confirm UI to the demo server and validates expiry/disconnect rendering. Real native confirmation still needs Accessibility acceptance with the rebuilt helper. |
 
 ## Engineering-plan tasks
 
@@ -22,7 +22,7 @@ GitHub issue has passed acceptance. Continue using deterministic behavior first.
 | P2-1: Mock controller | Implemented; basic injectable snapshots plus a fixture-backed Canvas state machine used by the CLI/server. Models successful Courses navigation, login, and stale IDs without a native helper. |
 | P2-2: Intent router | Implemented for Canvas/Courses, public dog images, known app launches, and zoom. Generic OPEN_APP/OPEN_WEBSITE routing, volume, COMPUTER_USE, and REASON routes remain future work. Unknown requests fail without executing. |
 | P2-3: Skill registry | Implemented as a typed deterministic registry plus trusted injection for mock tests. OPEN_CANVAS and ZOOM_IN work; known app launches cover Edge, Finder, and Photos. This is not a generalized natural-language skill matcher. |
-| P2-4: Jev / chooseNextAction | **Adapter implemented under #15; mock loop and interactive developer demo implemented under #16.** The official SDK adapter receives only bounded sanitized state and opaque choices; local target IDs stay private. Strict response/probability validation, cancellation, confidence fallback, bounded observe/choose/act verification, no-progress detection, and safety-gate regression tests are present. A real synthetic-only API smoke succeeded without execution, and the mock demo reached the controller with redacted history. A native developer route and stable target work (#17) remain. |
+| P2-4: Jev / chooseNextAction | **Adapter, mock loop/demo, and constrained native developer route implemented under #15–#17.** The SDK receives bounded sanitized state and opaque choices; local IDs/generations stay private. The native route is exact-goal, Edge, Canvas/loopback, click-only, 5-action/15-observation bounded, uses history and confirmations, and rejects prohibited controls. Real synthetic API calls succeeded. Native localhost/live Canvas acceptance awaits Accessibility permission for the rebuilt helper. |
 | P2-5: Action history | Implemented: timestamps and controller outcomes, up to 100 redacted in-memory entries; API, JSON-lines access, and optional CLI display. No raw input, state snapshots, or local log files. |
 | P2-6: Confirmations | Agent portion implemented; UI portion and full integration remain pending under #9. |
 | P2-7: Optional planner | Not started; intentionally deferred. |
@@ -44,9 +44,9 @@ is currently the structured event stream and redacted history, not a debug UI.
 
 1. Finish #6 and #9 acceptance with the interface teammate using the existing
    transport, shared types, client example, and `agent:confirmation-demo-server`.
-2. Finish #15 with a real synthetic-only API smoke, then build #16 against mock
-   states. Keep live native execution blocked on stable target work in #17. No
-   larger-model planner is needed for #7.
+2. Grant Accessibility to the rebuilt helper, run the disposable localhost native
+   acceptance, then verify the constrained live Canvas developer command. No larger-model
+   planner is needed for #7.
 3. Revisit aliases and recovery if the demo needs them. Keep infrastructure and new
    demo skills off the critical path.
 
@@ -57,8 +57,13 @@ verification, and do not add real file deletion to the simulated safety demo.
 
 ## Acceptance run — 2026-09-26
 
-- `npm test`: 82/82 pass after adding the bounded Jev adapter, mock-loop, and interactive demo tests, including the
+- `npm test`: 88/88 pass after adding generation/replay, atomic confirmation,
+  native scope, mock-loop, and developer-command tests, including the
   existing mock confirmation child-process entry.
+- Swift helper: syntax parsing and a full debug build pass with the installed
+  matching macOS 26 SDK. The default SDK points to an incompatible version.
+- Disposable native smoke: reached Edge and the rebuilt helper, then stopped with
+  the documented Accessibility permission denial before inspecting or acting.
 - `npm run jev:smoke`: the real API returned a valid low-confidence decision for
   synthetic state; Nora produced `ask_user` and executed nothing.
 - `npm run jev:demo -- "Open Courses"`: the real API selected the one synthetic

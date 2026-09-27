@@ -43,16 +43,19 @@ class FakeClient implements JevDecisionClient {
 test("preparation sends bounded labeled choices without native target IDs or values", () => {
   const prepared = prepareJevDecision({
     goal: "  Open\nCourses  ",
-    state: state({ activeWindow: " Canvas\tDashboard " }),
+    state: state({ activeWindow: " Canvas\tDashboard ", snapshotGeneration: "private-generation" }),
   });
   assert.equal(prepared.state.goal, "Open Courses");
   assert.equal(prepared.state.active_window, "Canvas Dashboard");
   assert.deepEqual(prepared.state.controls, [
     { option: "action_000", role: "AXLink", label: "Courses", actions: ["AXPress"] },
   ]);
-  assert.deepEqual(prepared.actions.get("action_000"), { type: "click", target: "native-secret-id" });
+  assert.deepEqual(prepared.actions.get("action_000"), {
+    type: "click", target: "native-secret-id", snapshotGeneration: "private-generation",
+  });
   const transmitted = JSON.stringify(prepared.state);
   assert.equal(transmitted.includes("native-secret-id"), false);
+  assert.equal(transmitted.includes("private-generation"), false);
   assert.equal(transmitted.includes("disabled"), false);
   assert.equal(transmitted.includes("Search"), false);
   assert.equal(Object.keys(prepared.criteria).length, 4);
