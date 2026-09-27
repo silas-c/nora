@@ -18,6 +18,8 @@ Live control of this Mac:
 apps/desktop-ui/scripts/run.sh --live
 ```
 
+Put `TYPESAFE_API_KEY` in the repository's `.env.local` before launching. Nora loads it into the agent process and uses Jev to interpret typed and spoken requests against its supported actions. Without the key, live text and voice requests show a configuration error; the tiles still work. Practice mode uses Jev when the key is present and otherwise uses the built-in command phrases.
+
 Grant Accessibility permission to Nora when macOS asks. Opening apps and websites can work before that; zoom and Canvas navigation need it. Press **Option-Space** to bring the panel forward. Nora stays out of the Dock (`LSUIElement`).
 
 ## What the panel does

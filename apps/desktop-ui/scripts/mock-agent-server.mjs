@@ -2,7 +2,7 @@
 // It serves the real agent and JSON-lines transport against the synthetic Canvas controller,
 // plus one simulated destructive request so the confirmation flow can be shown end to end.
 // Nothing here launches apps, reads the desktop, or touches files.
-import { createAgent, CanvasMockComputerController, serveAgent } from "../../../dist/agent/src/index.js";
+import { createAgent, createJevIntentResolver, CanvasMockComputerController, serveAgent } from "../../../dist/agent/src/index.js";
 
 const SIMULATED_DELETE_INTENT = "SIMULATE_DELETE_DOWNLOADS";
 const simulatedDelete = {
@@ -14,6 +14,7 @@ const simulatedDelete = {
 const deletePhrase = /^(?:please )?delete everything in (?:my )?downloads(?: folder)?[.!]?$/i;
 
 const agent = createAgent(new CanvasMockComputerController(), {
+  resolveIntent: process.env.TYPESAFE_API_KEY ? createJevIntentResolver() : undefined,
   resolveSkill: input =>
     (input.source === "aac" && input.intent === SIMULATED_DELETE_INTENT)
       || ((input.source === "text" || input.source === "voice") && deletePhrase.test(input.text.trim()))

@@ -1,7 +1,10 @@
 # Nora agent — Daniel / Person 2
 
-The deterministic router selects a skill, executes it through `ComputerController`,
-and emits `thinking`, `acting`, then `done` or `error`.
+In the desktop app, Jev interprets text and voice into one supported intent when
+`TYPESAFE_API_KEY` is configured. AAC tiles use fixed intents. The agent executes
+only its listed skills through `ComputerController` and emits `thinking`, `acting`,
+then `done` or `error`. The CLI and keyless mock server retain the deterministic
+phrase router.
 
 | Text / voice transcript | AAC intent | Action |
 | --- | --- | --- |
@@ -209,8 +212,10 @@ never retries it. It does not access Canvas or any account.
   live-Canvas native Jev acceptance sequence for #17.
 
 The agent supports confirmation through `agent.confirm()` and the desktop transport.
-The normal router, server, and deterministic skills do not construct the Jev client
-and need no model SDK configuration or API key.
+The desktop server loads `.env.local` and uses Jev for text and voice. Live text
+and voice report a configuration error when `TYPESAFE_API_KEY` is absent; AAC
+tiles continue to work. Jev's separate bounded control chooser remains available
+through the developer commands below.
 
 ## Desktop transport — issue #6
 
@@ -397,8 +402,9 @@ Never map untrusted request fields to skill effects or executable actions.
   A separate mock-only JSON-lines server is available for the teammate-owned
   Cancel/Confirm UI. Full UI acceptance remains pending until that UI is present.
 
-The shipped product routes remain deterministic. Jev is reachable only through
-the explicit `jev:smoke`, `jev:demo`, and `--native --jev` developer commands.
+The desktop server now uses Jev to interpret text and voice when configured.
+Jev's control selection path remains limited to the explicit `jev:smoke`,
+`jev:demo`, and `--native --jev` developer commands.
 Generated files in `dist/` are build artifacts; edit `packages/agent/src`.
 
 ## Action history — Person 2 task P2-5

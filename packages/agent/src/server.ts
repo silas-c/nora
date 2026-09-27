@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { createAgent, MockComputerController, CanvasMockComputerController, NativeComputerController } from "./index.js";
 import { serveAgent } from "./transport.js";
+import { createJevIntentResolver } from "./jev-intent.js";
 
 const args = process.argv.slice(2);
 if (args.some(arg => arg !== "--native")) {
@@ -11,7 +12,9 @@ if (args.some(arg => arg !== "--native")) {
   const controller = native
     ? new NativeComputerController(fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url)))
     : new CanvasMockComputerController();
-  const agent = createAgent(controller);
+  const resolveIntent = process.env.TYPESAFE_API_KEY ? createJevIntentResolver()
+    : native ? async () => { throw new Error("Jev needs TYPESAFE_API_KEY in .env.local."); } : undefined;
+  const agent = createAgent(controller, { resolveIntent });
   const close = async () => {
     if (controller instanceof NativeComputerController) await controller.close();
   };

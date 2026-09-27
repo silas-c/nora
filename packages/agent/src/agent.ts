@@ -1,5 +1,6 @@
 import type { ActionResult, Agent, AgentEvent, AgentResult, ComputerController, UserInput } from "../../shared/src/types.js";
 import { routeIntent } from "./router.js";
+import type { Intent } from "./router.js";
 import { skills, type Skill } from "./skills.js";
 import { navigateCourses, type NavigationOptions } from "./navigation.js";
 import { ActionGate } from "./safety.js";
@@ -8,6 +9,7 @@ import { ActionHistory } from "./history.js";
 export interface AgentOptions extends Pick<NavigationOptions, "wait"> {
   /** Trusted test/embedding hook; never accepted in the JSON-lines protocol. */
   resolveSkill?: (input: UserInput) => Skill | undefined;
+  resolveIntent?: (text: string, signal: AbortSignal) => Promise<Intent>;
   /** Clock injection for expiration tests. Production uses Date.now. */
   now?: () => number;
 }
@@ -63,7 +65,9 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
       busy = true;
       try {
         emit({ type: "thinking" });
-        const intent = routeIntent(input);
+        const intent = input.source === "aac" || !options.resolveIntent
+          ? routeIntent(input)
+          : await options.resolveIntent(input.text, lifecycle.signal);
         if (intent === "OPEN_COURSES") {
           return finish(await navigateCourses(recordedComputer, async action => {
             const result = await gate.run({ action, effect: "navigation", actingMessage: "", doneMessage: "Navigation action accepted." });

@@ -101,7 +101,7 @@ public enum AgentLocator {
         switch mode {
         case .mock:
             let script = root.appendingPathComponent("apps/desktop-ui/scripts/mock-agent-server.mjs")
-            return AgentLaunchConfiguration(executable: node, arguments: [script.path], workingDirectory: root, mode: mode)
+            return AgentLaunchConfiguration(executable: node, arguments: ["--env-file-if-exists=.env.local", script.path], workingDirectory: root, mode: mode)
         case .live:
             let helper = root.appendingPathComponent("apps/macos-helper/.build/debug/mac-helper")
             guard fileManager.isExecutableFile(atPath: helper.path) else {
@@ -109,7 +109,7 @@ public enum AgentLocator {
                                        recovery: "In the nora folder, run: swift build --package-path apps/macos-helper")
             }
             let server = root.appendingPathComponent("dist/agent/src/server.js")
-            return AgentLaunchConfiguration(executable: node, arguments: [server.path, "--native"], workingDirectory: root, mode: mode)
+            return AgentLaunchConfiguration(executable: node, arguments: ["--env-file-if-exists=.env.local", server.path, "--native"], workingDirectory: root, mode: mode)
         }
     }
 }
