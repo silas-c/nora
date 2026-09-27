@@ -108,6 +108,13 @@ final class SnapshotReader {
             throw ControlError(message: "Target \(id) does not support clicking")
         }
         consumeSnapshot()
+        // Chromium currently reports AXPress success for webpage nodes without
+        // dispatching their DOM activation. Use the already validated element's
+        // accessibility bounds for one physical click instead.
+        if NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.microsoft.edgemac" {
+            try clickElementAtCenter(element)
+            return
+        }
         let status = AXUIElementPerformAction(element, kAXPressAction as CFString)
         guard status == .success else {
             throw ControlError(message: "Could not click \(id) (Accessibility error \(status.rawValue))")

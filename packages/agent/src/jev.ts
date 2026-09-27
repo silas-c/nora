@@ -80,9 +80,11 @@ export function prepareJevDecision(input: JevDecisionInput): PreparedJevDecision
     return { option, role: clean(element.role, 80), label, actions: supported };
   });
   const criteria: Record<string, string> = {};
-  for (const control of controls) criteria[control.option] = `Activate the ${control.role} labeled ${JSON.stringify(control.label)}.`;
-  criteria[STATUS_DONE] = "The visible state already proves the user's goal is complete; do not activate another control.";
-  criteria[STATUS_ASK_USER] = "The visible state is ambiguous and a user choice is needed before acting.";
+  for (const control of controls) {
+    criteria[control.option] = `Choose this direct bounded navigation step when activating the enabled ${control.role} labeled ${JSON.stringify(control.label)} best advances the goal ${JSON.stringify(goal)}.`;
+  }
+  criteria[STATUS_DONE] = `The active window already shows the requested destination for goal ${JSON.stringify(goal)}; do not activate another control.`;
+  criteria[STATUS_ASK_USER] = "Two or more listed controls plausibly advance the goal, or required user information is missing; do not choose this merely because an otherwise direct listed control has an external effect.";
   criteria[STATUS_BLOCKED] = "No listed control safely advances the goal, or the required control is absent.";
   return {
     state: {

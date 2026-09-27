@@ -3,6 +3,66 @@ import ApplicationServices
 import Carbon
 import CoreGraphics
 
+func clickElementAtCenter(_ element: AXUIElement) throws {
+    guard AXIsProcessTrusted(), CGPreflightPostEventAccess() else {
+        throw SnapshotError.permissionDenied
+    }
+    var positionValue: CFTypeRef?
+    var sizeValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
+          AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
+          let positionValue, let sizeValue,
+          CFGetTypeID(positionValue) == AXValueGetTypeID(),
+          CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
+        throw ControlError(message: "Could not locate the target on screen")
+    }
+    var origin = CGPoint.zero
+    var size = CGSize.zero
+    guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &origin),
+          AXValueGetValue(sizeValue as! AXValue, .cgSize, &size),
+          size.width > 0, size.height > 0 else {
+        throw ControlError(message: "Target has no clickable on-screen bounds")
+    }
+    let point = CGPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+    guard let app = NSWorkspace.shared.frontmostApplication else {
+        throw ControlError(message: "Could not determine the active app")
+    }
+    let appElement = AXUIElementCreateApplication(app.processIdentifier)
+    var windowValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
+          let windowValue, CFGetTypeID(windowValue) == AXUIElementGetTypeID() else {
+        throw SnapshotError.noWindow
+    }
+    let window = windowValue as! AXUIElement
+    var windowPositionValue: CFTypeRef?
+    var windowSizeValue: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &windowPositionValue) == .success,
+          AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &windowSizeValue) == .success,
+          let windowPositionValue, let windowSizeValue,
+          CFGetTypeID(windowPositionValue) == AXValueGetTypeID(),
+          CFGetTypeID(windowSizeValue) == AXValueGetTypeID() else {
+        throw ControlError(message: "Could not locate the active window")
+    }
+    var windowOrigin = CGPoint.zero
+    var windowSize = CGSize.zero
+    guard AXValueGetValue(windowPositionValue as! AXValue, .cgPoint, &windowOrigin),
+          AXValueGetValue(windowSizeValue as! AXValue, .cgSize, &windowSize),
+          CGRect(origin: windowOrigin, size: windowSize).contains(point) else {
+        throw ControlError(message: "Target is outside the active window")
+    }
+    guard NSScreen.screens.contains(where: { $0.frame.contains(point) }) else {
+        throw ControlError(message: "Target is outside the visible screen")
+    }
+    guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                             mouseCursorPosition: point, mouseButton: .left),
+          let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
+                           mouseCursorPosition: point, mouseButton: .left) else {
+        throw ControlError(message: "Could not create mouse click events")
+    }
+    down.post(tap: .cgSessionEventTap)
+    up.post(tap: .cgSessionEventTap)
+}
+
 func typeFocusedText(_ text: String) throws {
     guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
     guard let app = NSWorkspace.shared.frontmostApplication else {

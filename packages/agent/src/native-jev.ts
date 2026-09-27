@@ -24,6 +24,21 @@ export interface NativeJevResult {
 
 const normalize = (value: string | undefined) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 const PROHIBITED_LABEL = /\b(delete|remove|submit|send|save|purchase|buy|checkout|download|upload|account|password|pay|post|publish|sign\s*out|log\s*out)\b/i;
+const COURSES_LABEL = /\bcourses?\b/i;
+
+export function isNativeCoursesDestination(state: ComputerState): boolean {
+  const window = normalize(state.activeWindow);
+  return window.startsWith("courses - canvas")
+    || window.startsWith("all courses - canvas")
+    || state.elements.some(element => normalize(element.label) === "all courses");
+}
+
+export function scopeNativeJevState(state: ComputerState): ComputerState {
+  return {
+    ...structuredClone(state),
+    elements: state.elements.filter(element => COURSES_LABEL.test(element.label ?? "")),
+  };
+}
 
 export function isAllowedNativeJevURL(rawURL: string): boolean {
   try {
@@ -64,7 +79,7 @@ export async function runNativeJev(
   const write = options.write ?? (value => console.log(JSON.stringify(value)));
   const history = new ActionHistory();
   const recorded: ComputerController = {
-    getState: () => computer.getState(),
+    getState: async () => scopeNativeJevState(await computer.getState()),
     execute: action => history.record(action, () => computer.execute(action)),
     ...(computer.executeValidated ? {
       executeValidated: (action: ComputerAction, expected: ComputerState) =>
@@ -72,6 +87,11 @@ export async function runNativeJev(
     } : {}),
   };
   const gate = new ActionGate(recorded, event => write({ kind: "agent_event", event }), signal);
+  const goalAwareChooser: NextActionChooser = {
+    choose: (input, chooseSignal) => isNativeCoursesDestination(input.state)
+      ? Promise.resolve({ type: "done", confidence: 1 })
+      : chooser.choose(input, chooseSignal),
+  };
   try {
     signal.throwIfAborted();
     write({ kind: "native_jev", goal, url, limits: { actions: 5, observations: 15 }, native: true });
@@ -81,7 +101,7 @@ export async function runNativeJev(
     const result = await runComputerLoop(
       goal,
       recorded,
-      chooser,
+      goalAwareChooser,
       async (action, context): Promise<ActionResult> => {
         const target = selectedElement(action, context);
         write({

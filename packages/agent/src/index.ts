@@ -19,5 +19,8 @@ export { TypeSafeJevClient } from "./typesafe-jev-client.js";
 export type { TypeSafeJevClientOptions } from "./typesafe-jev-client.js";
 export { runComputerLoop } from "./computer-loop.js";
 export type { ComputerLoopOptions, ComputerLoopResult, ModelActionContext } from "./computer-loop.js";
-export { isAllowedNativeJevURL, isSafeNativeCoursesNavigation, runNativeJev } from "./native-jev.js";
+export {
+  isAllowedNativeJevURL, isNativeCoursesDestination, isSafeNativeCoursesNavigation,
+  runNativeJev, scopeNativeJevState,
+} from "./native-jev.js";
 export type { NativeJevOptions, NativeJevResult } from "./native-jev.js";

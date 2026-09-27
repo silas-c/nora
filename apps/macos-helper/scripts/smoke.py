@@ -115,7 +115,8 @@ def main():
         state = wait_for("Test input")
         assert state["activeApp"] == "Microsoft Edge", state["activeApp"]
         assert state["snapshotGeneration"]
-        assert "disabled" in call(targeted(state, "click", "Disabled button"))["error"]
+        disabled_response = call(targeted(state, "click", "Disabled button"))
+        assert "disabled" in disabled_response.get("error", ""), disabled_response
         state = wait_for("Test input")
         edit = targeted(state, "type_text", "Test input", text="hello")
         ok(edit)
@@ -153,6 +154,17 @@ def main():
         else:
             raise AssertionError("Page did not scroll down and right")
 
+        ok({"type": "scroll", "direction": "up", "amount": 4})
+        ok({"type": "scroll", "direction": "left", "amount": 4})
+        for _ in range(15):
+            state = ok({"type": "snapshot"})
+            position = re.search(r"Nora Smoke (\d+) (\d+)", state["activeWindow"] or "")
+            if position and all(int(value) == 0 for value in position.groups()):
+                break
+            time.sleep(0.2)
+        else:
+            raise AssertionError("Page did not scroll back to the link viewport")
+        state = wait_for("Next page")
         next_request = targeted(state, "click", "Next page")
         ok(next_request)
         for _ in range(15):

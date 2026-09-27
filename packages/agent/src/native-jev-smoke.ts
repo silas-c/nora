@@ -8,12 +8,14 @@ import { BoundedJevChooser } from "./jev.js";
 import { TypeSafeJevClient } from "./typesafe-jev-client.js";
 import { runNativeJev } from "./native-jev.js";
 
-const page = `<!doctype html><html lang="en"><meta charset="utf-8">
-<title>Nora Jev Smoke</title><h1>Disposable Jev navigation test</h1>
-<button onclick="this.disabled=true;document.title='Courses - Nora Jev Smoke'">Courses</button></html>`;
-const server = createServer((_request, response) => {
+const dashboardPage = `<!doctype html><html lang="en"><meta charset="utf-8">
+<title>Dashboard - Canvas</title><h1>Disposable Canvas dashboard</h1>
+<a href="/courses">Courses</a></html>`;
+const coursesPage = `<!doctype html><html lang="en"><meta charset="utf-8">
+<title>Courses - Canvas</title><h1>Courses</h1></html>`;
+const server = createServer((request, response) => {
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-  response.end(page);
+  response.end(request.url === "/courses" ? coursesPage : dashboardPage);
 });
 const bundledHelper = fileURLToPath(new URL(
   "../../../apps/macos-helper/.build/NoraMacHelper.app/Contents/MacOS/mac-helper", import.meta.url,
@@ -44,13 +46,10 @@ try {
     throw new Error(`Expected one successful bounded click; observed ${clicks.length}.`);
   }
   const finalState = await controller.getState();
-  if (!finalState.activeWindow?.startsWith("Courses - Nora Jev Smoke")) {
+  if (!finalState.activeWindow?.startsWith("Courses - Canvas")) {
     throw new Error("The disposable page did not expose the expected post-click state.");
   }
-  if (!result.result.success
-    && !/not confident enough|needs a user choice|no visible control/i.test(result.result.error)) {
-    throw new Error(result.result.error);
-  }
+  if (!result.result.success) throw new Error(result.result.error);
   console.log("PASS: real Jev selected one disposable Courses control, the atomic native click ran once, and fresh state verified the result.");
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

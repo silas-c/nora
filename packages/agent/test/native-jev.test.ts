@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ActionResult, ComputerAction, ComputerController, ComputerState } from "../../shared/src/types.js";
 import type { JevDecision, NextActionChooser } from "../src/jev.js";
-import { isAllowedNativeJevURL, runNativeJev } from "../src/native-jev.js";
+import {
+  isAllowedNativeJevURL, isNativeCoursesDestination, runNativeJev, scopeNativeJevState,
+} from "../src/native-jev.js";
 
 const snapshot = (
   generation: string,
@@ -62,7 +64,6 @@ test("native Jev route opens only allowed scope, clicks Courses once, and verifi
   ]);
   const result = await runNativeJev("Open Courses", computer, new ScriptedChooser([
     { type: "action", action: { type: "click", target: "courses", snapshotGeneration: "g1" }, confidence: 0.99 },
-    { type: "done", confidence: 0.99 },
   ]), new AbortController().signal, options);
   assert.equal(result.result.success, true);
   assert.deepEqual(computer.actions.map(action => action.type), ["open_url", "click"]);
@@ -73,7 +74,7 @@ test("native Jev route opens only allowed scope, clicks Courses once, and verifi
 test("ambiguous navigation requires confirmation and resumes through atomic validation", async () => {
   const computer = new NativeFixture([
     snapshot("g1", "Dashboard - Canvas", [
-      { id: "dashboard", role: "AXLink", label: "Dashboard", enabled: true, actions: ["AXPress"] },
+      { id: "dashboard", role: "AXLink", label: "Course Dashboard", enabled: true, actions: ["AXPress"] },
     ]),
     snapshot("g2", "Dashboard - Canvas", []),
   ]);
@@ -93,7 +94,7 @@ test("ambiguous navigation requires confirmation and resumes through atomic vali
 
 test("prohibited controls, changed apps, unsupported goals, URLs, and cancellation execute no model action", async () => {
   const prohibited = new NativeFixture([snapshot("g1", "Canvas", [
-    { id: "submit", role: "AXButton", label: "Submit assignment", enabled: true, actions: ["AXPress"] },
+    { id: "submit", role: "AXButton", label: "Submit Courses assignment", enabled: true, actions: ["AXPress"] },
   ])]);
   const stopped = await runNativeJev("Open Courses", prohibited, new ScriptedChooser([
     { type: "action", action: { type: "click", target: "submit", snapshotGeneration: "g1" }, confidence: 1 },
@@ -126,4 +127,24 @@ test("native Jev URL allowlist accepts Temple Canvas and loopback only", () => {
   assert.equal(isAllowedNativeJevURL("https://example.com"), false);
   assert.equal(isAllowedNativeJevURL("file:///tmp/page.html"), false);
   assert.equal(isAllowedNativeJevURL("https://canvas.temple.edu.evil.example"), false);
+});
+
+test("native Jev sends only goal-relevant Course controls", () => {
+  const state = snapshot("g1", "Canvas", [
+    { id: "browser", role: "AXButton", label: "Back", enabled: true, actions: ["AXPress"] },
+    { id: "courses", role: "AXLink", label: "Courses", enabled: true, actions: ["AXPress"] },
+    { id: "course-card", role: "AXButton", label: "Course card", enabled: true, actions: ["AXPress"] },
+    { id: "account", role: "AXButton", label: "Account", enabled: true, actions: ["AXPress"] },
+  ]);
+  assert.deepEqual(scopeNativeJevState(state).elements.map(element => element.id), ["courses", "course-card"]);
+  assert.equal(state.elements.length, 4);
+});
+
+test("native Jev recognizes freshly observed Courses destinations without another model choice", () => {
+  assert.equal(isNativeCoursesDestination(snapshot("g1", "Courses - Canvas - Microsoft Edge", [])), true);
+  assert.equal(isNativeCoursesDestination(snapshot("g1", "All Courses - Canvas", [])), true);
+  assert.equal(isNativeCoursesDestination(snapshot("g1", "Dashboard - Canvas", [
+    { id: "all", role: "AXLink", label: "All Courses", enabled: true, actions: ["AXPress"] },
+  ])), true);
+  assert.equal(isNativeCoursesDestination(snapshot("g1", "Dashboard - Canvas", [])), false);
 });
