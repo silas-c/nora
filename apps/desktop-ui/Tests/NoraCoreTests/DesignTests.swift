@@ -22,18 +22,11 @@ struct DesignTests {
         #expect(abs(WCAG.contrast(0x777777, 0xFFFFFF) - 4.48) < 0.01)
     }
 
-    @Test func tilesUseOnlyIntentsTheRouterAccepts() {
-        // Kept in sync with the AAC switch in packages/agent/src/router.ts; the integration suite checks the live router.
-        let accepted: Set<String> = ["OPEN_SCHOOL", "OPEN_CANVAS", "OPEN_COURSES", "OPEN_DOG_PHOTOS", "OPEN_PHOTOS",
-                                     "OPEN_EDGE", "OPEN_FINDER", "ZOOM_IN", "ZOOM_OUT", "OPEN_INTERNET"]
-        for tile in TileCatalog.all { #expect(accepted.contains(tile.intent), "\(tile.intent)") }
-        #expect(Set(TileCatalog.all.map(\.intent)).count == TileCatalog.all.count)
-        #expect(TileCatalog.home.first?.intent == "OPEN_SCHOOL")
-    }
-
     @Test func homeGridStaysSmallEnoughToScan() {
         #expect(TileCatalog.home.count == 6)
         #expect(TileCatalog.scanRows.flatMap { $0 } == TileCatalog.all)
+        #expect(Set(TileCatalog.all.map(\.intent)).count == TileCatalog.all.count)
+        #expect(TileCatalog.home.first?.intent == "OPEN_SCHOOL")
     }
 
     @Test func repairRanksTyposAndSynonyms() {
