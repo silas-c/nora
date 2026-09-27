@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline/promises";
 import { createAgent, MockComputerController, CanvasMockComputerController, NativeComputerController } from "./index.js";
@@ -15,8 +16,11 @@ if (jev) args.shift();
 const aac = args[0] === "--aac";
 if (aac) args.shift();
 const value = args.join(" ") || (aac ? "OPEN_SCHOOL" : "Open Canvas");
-const helperPath = process.env.NORA_HELPER_PATH
-  ?? fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url));
+const bundledHelper = fileURLToPath(new URL(
+  "../../../apps/macos-helper/.build/NoraMacHelper.app/Contents/MacOS/mac-helper", import.meta.url,
+));
+const debugHelper = fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url));
+const helperPath = process.env.NORA_HELPER_PATH ?? (existsSync(bundledHelper) ? bundledHelper : debugHelper);
 const controller = native
   ? new NativeComputerController(helperPath)
   : new CanvasMockComputerController();

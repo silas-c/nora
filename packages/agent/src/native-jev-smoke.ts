@@ -1,5 +1,6 @@
 /** Explicit desktop test: real Jev, real helper, disposable localhost page, no account data. */
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { NativeComputerController } from "./native-controller.js";
@@ -14,7 +15,11 @@ const server = createServer((_request, response) => {
   response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
   response.end(page);
 });
-const defaultHelper = fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url));
+const bundledHelper = fileURLToPath(new URL(
+  "../../../apps/macos-helper/.build/NoraMacHelper.app/Contents/MacOS/mac-helper", import.meta.url,
+));
+const debugHelper = fileURLToPath(new URL("../../../apps/macos-helper/.build/debug/mac-helper", import.meta.url));
+const defaultHelper = existsSync(bundledHelper) ? bundledHelper : debugHelper;
 const controller = new NativeComputerController(process.env.NORA_HELPER_PATH ?? defaultHelper);
 const lifecycle = new AbortController();
 const cancel = () => lifecycle.abort();

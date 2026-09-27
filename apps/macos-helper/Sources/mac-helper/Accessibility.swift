@@ -53,7 +53,8 @@ final class SnapshotReader {
         snapshotPID = nil
         snapshotWindowTitle = nil
         snapshotGeneration = nil
-        guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
+        let prompt = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        guard AXIsProcessTrustedWithOptions(prompt) else { throw SnapshotError.permissionDenied }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         let isEdge = app.bundleIdentifier == "com.microsoft.edgemac"

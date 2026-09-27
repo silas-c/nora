@@ -2,6 +2,19 @@
 
 Run with `swift run mac-helper` from this directory. The process reads one JSON request per line from standard input and writes one JSON response per line to standard output.
 
+For Accessibility-backed development, package the built executable with a stable
+app identity, then add the resulting app—not the raw build product—to System
+Settings > Privacy & Security > Accessibility:
+
+```sh
+swift build
+sh scripts/package_app.sh
+```
+
+The bundle is `.build/NoraMacHelper.app` with identifier `ai.nora.mac-helper`.
+The agent and native smoke command prefer its embedded helper automatically. The
+first snapshot also asks macOS to display its Accessibility authorization prompt.
+
 Supported requests:
 
 ```json

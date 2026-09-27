@@ -172,6 +172,7 @@ The explicit native developer route is separate from ordinary intent routing:
 
 ```sh
 swift build --package-path apps/macos-helper
+npm run helper:package-app
 npm run agent -- --native --jev "Open Courses"
 ```
 
@@ -183,6 +184,9 @@ and resume through atomic target validation; submission, editing, deletion,
 download, purchase, authentication, and account controls remain out of scope even
 with confirmation. The command is developer-only and does not change the UI
 JSON-lines protocol. `NORA_HELPER_PATH` may point to an explicitly built helper.
+For development, grant Accessibility to
+`apps/macos-helper/.build/NoraMacHelper.app`; the CLI prefers that stable bundle
+over the raw Swift build product.
 
 After granting Accessibility permission to the rebuilt helper, run the real Jev
 native chain against disposable localhost content:
