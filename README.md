@@ -7,6 +7,7 @@ Nora is a macOS accessibility layer that turns voice, text, and AAC inputs into 
 - **macOS controller (Silas):** maintain `apps/macos-helper`, which now provides app launch/focus, URL opening, accessibility snapshots, click, text, keypress, and scroll actions.
 - **Agent (Daniel):** `packages/agent` provides deterministic skills, bounded Courses navigation, a persistent helper connection, UI JSON-lines transport, and confirmation enforcement. See the [agent guide](packages/agent/README.md) for setup, protocol, tests, and remaining UI/native verification.
 - **HCI / interface:** `apps/desktop-ui` is the SwiftUI overlay. It sends text and AAC input to the agent and shows idle, acting, done, and error feedback. See the [desktop UI guide](apps/desktop-ui/README.md).
+- **Reproducible demo:** [Terraform + Docker](infra/demo/README.md) serves sample action-test pages on localhost for demos without personal accounts or files.
 
 ## Helper protocol
 

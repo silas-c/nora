@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Nora Action Test</title>
+<label for="test-input">Test input</label>
+<input id="test-input" aria-label="Test input">
+<button id="show" onclick="this.textContent = 'Typed: ' + document.getElementById('test-input').value">Show typed value</button>
+<button id="click" onclick="this.textContent = 'Clicked'">Click me</button>
+<button id="key">Key: none</button>
+<button disabled>Disabled button</button>
+<a href="/next.html">Next page</a>
+<script>document.addEventListener('keydown', e => document.getElementById('key').textContent = 'Key: ' + (e.metaKey ? 'CMD+' : '') + e.key)</script>
