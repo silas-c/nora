@@ -9,11 +9,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var model: AppModel?
     private var panel: OverlayPanel?
+    private var voiceIndicator: VoiceIndicatorPanel?
     private var transparencyPanel: OverlayPanel?
     private var settingsPanel: OverlayPanel?
     private var statusItem: NSStatusItem?
     private var hotKey: HotKey?
     private var keyMonitor: Any?
+    private var displayObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -36,6 +38,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installMainMenu()
         installStatusItem()
         showMainPanel(model)
+        showVoiceIndicator(model.voice)
+        displayObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.placeVoiceIndicator() }
+        }
         installKeyMonitor()
         hotKey = HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak self] in self?.summon() }
         if hotKey == nil { model.note("Option-Space is taken by another app, so the Nora shortcut is off.") }
@@ -54,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let displayObserver { NotificationCenter.default.removeObserver(displayObserver) }
         model?.shutdown()
     }
 
@@ -72,6 +81,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.setFrameAutosaveName("NoraGlassPanel")
         panel.orderFrontRegardless()
         self.panel = panel
+    }
+
+    private func showVoiceIndicator(_ voice: VoiceInput) {
+        let panel = VoiceIndicatorPanel(voice: voice)
+        voiceIndicator = panel
+        placeVoiceIndicator()
+        panel.orderFrontRegardless()
+    }
+
+    private func placeVoiceIndicator() {
+        guard let panel = voiceIndicator, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+        let visible = screen.visibleFrame
+        panel.setFrameOrigin(NSPoint(x: screen.frame.midX - panel.frame.width / 2,
+                                     y: visible.maxY - panel.frame.height - 10))
     }
 
     private func place(_ panel: NSPanel) {

@@ -101,6 +101,13 @@ enum SnapshotRenderer {
         if let lastModel {
             write(SettingsView(model: lastModel), size: NSSize(width: 620, height: 1100), dark: false,
                   to: directory.appendingPathComponent("12-settings.png"))
+            let indicator = VoiceIndicatorView(voice: lastModel.voice)
+                .padding(18)
+                .background(Color(nsColor: .windowBackgroundColor))
+            write(indicator, size: NSSize(width: 388, height: 82), dark: false,
+                  to: directory.appendingPathComponent("13-voice-indicator.png"))
+            write(indicator, size: NSSize(width: 388, height: 82), dark: true,
+                  to: directory.appendingPathComponent("14-voice-indicator-dark.png"))
         }
     }
 

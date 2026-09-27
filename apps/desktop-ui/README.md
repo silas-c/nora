@@ -40,7 +40,7 @@ Set the key in the environment or paste it in Settings (stored in the login keyc
 ELEVENLABS_API_KEY=... apps/desktop-ui/scripts/run.sh
 ```
 
-Do not commit the key. Push-to-talk uses ElevenLabs Scribe (`scribe_v2`) when a key is set, and the Mac speech recognizer otherwise.
+Do not commit the key. Push-to-talk uses ElevenLabs Scribe (`scribe_v2`) when a key is set, and the Mac speech recognizer otherwise. A small, click-through indicator below the menu bar shows when Nora is listening or transcribing and briefly displays the words it heard.
 
 ## Checks
 

@@ -25,11 +25,13 @@ final class VoiceInput {
 
     private(set) var state: State = .idle
     private(set) var lastEngine = ""
+    private(set) var recentTranscript = ""
 
     @ObservationIgnored var onTranscript: (String) -> Void = { _ in }
     @ObservationIgnored var keyterms: () -> [String] = { Vocabulary.recognitionKeyterms }
     @ObservationIgnored private var recorder: AVAudioRecorder?
     @ObservationIgnored private var meterTask: Task<Void, Never>?
+    @ObservationIgnored private var transcriptTask: Task<Void, Never>?
     @ObservationIgnored private var heardSpeech = false
     @ObservationIgnored private var silenceStartedAt: Date?
     @ObservationIgnored private var startedAt = Date()
@@ -52,6 +54,7 @@ final class VoiceInput {
 
     func cancel() {
         meterTask?.cancel()
+        transcriptTask?.cancel()
         if let recorder {
             recorder.stop()
             try? FileManager.default.removeItem(at: recorder.url)
@@ -86,6 +89,8 @@ final class VoiceInput {
     }
 
     private func startRecording() {
+        transcriptTask?.cancel()
+        recentTranscript = ""
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("nora-speech-\(UUID().uuidString).m4a")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -168,8 +173,14 @@ final class VoiceInput {
                 state = .failed(.nothingHeard)
                 return
             }
+            recentTranscript = trimmed
             state = .idle
             onTranscript(trimmed)
+            transcriptTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(6))
+                guard !Task.isCancelled, self?.recentTranscript == trimmed else { return }
+                self?.recentTranscript = ""
+            }
         } catch {
             state = .failed(.service(error.localizedDescription))
         }
