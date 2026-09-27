@@ -38,6 +38,40 @@ func typeFocusedText(_ text: String) throws {
     }
 }
 
+/// Presses a key for each character, as a keyboard does. A newline presses Return.
+func typeKeystrokes(_ text: String, selectingAll: Bool, to pid: pid_t) throws {
+    guard CGPreflightPostEventAccess() else {
+        throw ControlError(message: "Keyboard event permission is required in System Settings > Privacy & Security > Accessibility")
+    }
+    func post(_ code: CGKeyCode, flags: CGEventFlags = [], text: String? = nil) throws {
+        guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
+              let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
+            throw ControlError(message: "Could not create keyboard event")
+        }
+        for event in [down, up] {
+            event.flags = flags
+            if let text {
+                let units = Array(text.utf16)
+                event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+            }
+            event.postToPid(pid)
+        }
+        usleep(8_000)
+    }
+    if selectingAll {
+        try post(CGKeyCode(kVK_ANSI_A), flags: .maskCommand)
+        usleep(50_000)
+    }
+    for character in text {
+        if character == "\n" {
+            usleep(150_000)
+            try post(CGKeyCode(kVK_Return))
+        } else {
+            try post(0, text: String(character))
+        }
+    }
+}
+
 func pressKey(_ key: String, modifiers: [String]) throws {
     guard AXIsProcessTrusted() else { throw SnapshotError.permissionDenied }
     guard CGPreflightPostEventAccess() else {

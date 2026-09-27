@@ -18,9 +18,13 @@ Live control of this Mac:
 apps/desktop-ui/scripts/run.sh --live
 ```
 
-Put `TYPESAFE_API_KEY` in the repository's `.env.local` before launching. Nora loads it into the agent process and uses Jev to interpret typed and spoken requests against its supported actions. Without the key, live text and voice requests show a configuration error; the tiles still work. Practice mode uses Jev when the key is present and otherwise uses the built-in command phrases.
+Put `TYPESAFE_API_KEY` in the repository's `.env.local` before launching. Exact built-in phrases run locally; Nora uses Jev to interpret other typed and spoken requests against its supported actions, including requests such as “open Edge and Canvas and my data structures class”, where Jev also picks the matching class from the ones Canvas shows. Without the key, exact built-in phrases and tiles still work. Practice mode uses the same routing.
 
-Grant Accessibility permission to Nora when macOS asks. Opening apps and websites can work before that; zoom and Canvas navigation need it. Press **Option-Space** to bring the panel forward. Nora stays out of the Dock (`LSUIElement`).
+Add `DEEPSEEK_API_KEY` to `.env.local` for requests no built-in task covers, such as “check Hacker News in Edge” or “open GitHub Copilot and pick a project”. Nora then works like a person at the keyboard, one step at a time: it reads the front window, DeepSeek V4.1 Flash (`deepseek-flash`) picks one step (open an app, click a control, type into a field, press a key, or scroll), Nora takes it, and reads the screen again. The model receives actionable control labels and up to 30 short read-only text snippets from the front window so it can verify results. It only reports done when the screen shows the request finished, and stops after 12 steps. Every step goes through the same safety gate as the tiles; typing in a terminal, pressing Return in a field that isn't a search or address bar, and buttons labeled with words like Subscribe, Buy, Send, Delete, or Sign in ask first. “My browser” means your default browser. Thinking is off by default for faster steps; set `DEEPSEEK_REASONING=low` or `high` for harder tasks.
+
+Set `NORA_RUN_LOG=1` in `.env.local` to record detailed runs locally in `~/Library/Logs/Nora/agent-runs.jsonl`. This debugging log includes requests and text chosen for typing; leave it off for private tasks. It rolls over at 5 MB.
+
+Grant Accessibility permission to Nora when macOS asks. The build signs Nora with a local certificate (`scripts/sign.sh`, created on first run in its own keychain), so the permission survives rebuilds. Opening apps and websites can work before that; zoom and Canvas navigation need it. Double-tap **Command** to show a small listening notch: say the request and Nora runs it when you pause. The notch shows your words on the `SpeechAnalyzer` path, then Nora's current action. The full panel stays hidden while a task runs; use the notch's expand button to open it. Confirmations open the full panel automatically. Double-tap again or press **Control-H** to hide Nora. Nora stays out of the Dock (`LSUIElement`).
 
 ## What the panel does
 
@@ -42,7 +46,7 @@ Set the key in the environment or paste it in Settings (stored in the login keyc
 ELEVENLABS_API_KEY=... apps/desktop-ui/scripts/run.sh
 ```
 
-Do not commit the key. Push-to-talk uses ElevenLabs Scribe (`scribe_v2`) when a key is set, and the Mac speech recognizer otherwise. A small, click-through indicator below the menu bar shows when Nora is listening or transcribing and briefly displays the words it heard.
+Do not commit the key. Push-to-talk uses ElevenLabs Scribe (`scribe_v2`) when a key is set. Without a key, it uses Apple's on-device `SpeechAnalyzer` on macOS 26 or later, with the older Mac speech recognizer as a fallback. The notch below the menu bar shows listening, transcription, and task progress; its buttons open the full panel or hide Nora.
 
 ## Checks
 

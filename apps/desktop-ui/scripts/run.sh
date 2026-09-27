@@ -4,6 +4,9 @@
 #   scripts/run.sh --live   live mode: the Swift helper controls this Mac (needs Accessibility permission)
 # Other arguments go to `swift build`.
 set -euo pipefail
+if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p 2>/dev/null || true)" == *CommandLineTools* && -d /Applications/Xcode.app/Contents/Developer ]]; then
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
 ui="$(cd "$(dirname "$0")/.." && pwd)"
 repo="$(cd "$ui/../.." && pwd)"
 
@@ -30,4 +33,4 @@ pkill -x Nora 2>/dev/null && sleep 1 || true
 open_args=(-g -n "$app")
 [[ -n "${ELEVENLABS_API_KEY:-}" ]] && open_args+=(--env "ELEVENLABS_API_KEY=$ELEVENLABS_API_KEY")
 open "${open_args[@]}" --args "$mode"
-echo "Nora is running in ${mode#--} mode. Press Option-Space to bring it forward."
+echo "Nora is running in ${mode#--} mode. Double-tap Command for the listening notch; Control-H hides it."

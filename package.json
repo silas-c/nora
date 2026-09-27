@@ -8,7 +8,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/agent/test/*.test.js",
+    "typecheck": "bun node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "test": "bun test packages/agent/test/",
+    "check": "bun scripts/check.mjs",
+    "test:node": "npm run build && node --test dist/agent/test/*.test.js",
     "agent": "npm run build && node --env-file-if-exists=.env.local dist/agent/src/cli.js",
     "agent:server": "node dist/agent/src/server.js",
     "agent:confirmation-demo-server": "node dist/agent/src/confirmation-demo-server.js",

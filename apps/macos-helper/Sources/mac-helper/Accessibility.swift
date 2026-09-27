@@ -114,22 +114,44 @@ final class SnapshotReader {
         }
     }
 
+    /// Types the way a person does: put the cursor in the field, check it is really there, then press each key.
+    /// Browser address bars and terminals ignore text set through Accessibility. A newline presses Return.
     func setText(_ text: String, in id: String, generation: String, expected: ExpectedTarget? = nil) throws {
         let element = try target(id, generation: generation, expected: expected)
         let role: String = attribute(element, kAXRoleAttribute) ?? ""
         guard ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox"].contains(role) else {
             throw ControlError(message: "Target \(id) is not a text input")
         }
-        var settable = DarwinBoolean(false)
-        guard AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success,
-              settable.boolValue else {
-            throw ControlError(message: "Target \(id) does not allow setting text")
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            throw ControlError(message: "Could not determine the active app")
         }
         consumeSnapshot()
-        let status = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFString)
-        guard status == .success else {
-            throw ControlError(message: "Could not set text in \(id) (Accessibility error \(status.rawValue))")
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        // Keystrokes only reach a window with keyboard focus; take it back from a panel such as Nora's first.
+        if (attribute(appElement, kAXFocusedWindowAttribute) as AXUIElement?) == nil, let window = frontWindow(of: appElement) {
+            AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
+            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+            app.activate(options: [])
+            usleep(200_000)
         }
+        AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        usleep(100_000)
+        guard let focused: AXUIElement = attribute(appElement, kAXFocusedUIElementAttribute), CFEqual(focused, element) else {
+            throw ControlError(message: "Could not put the cursor in \(id), so nothing was typed")
+        }
+        // A one-line field keeps its old text, such as the current address; select it so typing replaces it.
+        let replaceExisting = role != "AXTextArea"
+        try typeKeystrokes(text, selectingAll: replaceExisting, to: app.processIdentifier)
+    }
+
+    /// The window a person is working in. While another app's panel, such as Nora's, has keyboard focus, the app
+    /// reports no focused or main window, so fall back to its frontmost window that isn't minimized.
+    private func frontWindow(of app: AXUIElement) -> AXUIElement? {
+        if let window: AXUIElement = attribute(app, kAXFocusedWindowAttribute) ?? attribute(app, kAXMainWindowAttribute) {
+            return window
+        }
+        let windows: [AXUIElement] = attribute(app, kAXWindowsAttribute) ?? []
+        return windows.first { (attribute($0, kAXMinimizedAttribute) as Bool?) != true }
     }
 
     private func consumeSnapshot() {
@@ -148,8 +170,7 @@ final class SnapshotReader {
             throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        guard let window: AXUIElement = attribute(appElement, kAXFocusedWindowAttribute)
-                ?? attribute(appElement, kAXMainWindowAttribute) else {
+        guard let window = frontWindow(of: appElement) else {
             throw ControlError(message: "Target \(id) is stale. Take a new snapshot and try again.")
         }
         let currentTitle: String? = attribute(window, kAXTitleAttribute)
@@ -180,8 +201,7 @@ final class SnapshotReader {
 
     private func readOnce(_ app: NSRunningApplication, _ appElement: AXUIElement) throws -> (ComputerSnapshot, Bool) {
         elementsByID.removeAll()
-        guard let window: AXUIElement = attribute(appElement, kAXFocusedWindowAttribute)
-                ?? attribute(appElement, kAXMainWindowAttribute) else {
+        guard let window = frontWindow(of: appElement) else {
             throw SnapshotError.noWindow
         }
 
@@ -189,6 +209,7 @@ final class SnapshotReader {
         var queue: [(AXUIElement, Int)] = [(window, 0)]
         var index = 0
         var elements: [ElementSnapshot] = []
+        var staticTexts = 0
         var hasWebArea = false
         var truncated = false
         let maxNodes = 3_000
@@ -208,16 +229,22 @@ final class SnapshotReader {
             let actions = status == .success ? (names as? [String] ?? []) : []
             let role: String = attribute(element, kAXRoleAttribute) ?? "unknown"
             if role == "AXWebArea" { hasWebArea = true }
-            if actions.contains("AXPress") || inputRoles.contains(role) {
+            if actions.contains("AXPress") || inputRoles.contains(role) || (role == "AXStaticText" && staticTexts < 30) {
                 let title: String? = attribute(element, kAXTitleAttribute)
                 let description: String? = attribute(element, kAXDescriptionAttribute)
                 let linkValue: String? = role == "AXLink" ? attribute(element, kAXValueAttribute) : nil
-                let label = [title, description, linkValue].compactMap { $0 }.first { !$0.isEmpty }
-                let enabled: Bool = attribute(element, kAXEnabledAttribute) ?? true
-                let id = "e\(nextElementID)"
-                nextElementID += 1
-                elementsByID[id] = element
-                elements.append(ElementSnapshot(id: id, role: role, label: label, enabled: enabled, actions: actions))
+                let textValue: String? = role == "AXStaticText" ? attribute(element, kAXValueAttribute) : nil
+                let candidates = role == "AXStaticText" ? [textValue, title, description] : [title, description, linkValue]
+                let rawLabel = candidates.compactMap { $0 }.first { !$0.isEmpty }
+                let label = role == "AXStaticText" ? rawLabel.map { String($0.prefix(120)) } : rawLabel
+                if role != "AXStaticText" || label != nil {
+                    let enabled: Bool = attribute(element, kAXEnabledAttribute) ?? true
+                    let id = "e\(nextElementID)"
+                    nextElementID += 1
+                    if role == "AXStaticText" { staticTexts += 1 }
+                    elementsByID[id] = element
+                    elements.append(ElementSnapshot(id: id, role: role, label: label, enabled: enabled, actions: actions))
+                }
             }
 
             if let children: [AXUIElement] = attribute(element, kAXChildrenAttribute) {

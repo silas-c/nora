@@ -126,6 +126,13 @@ func runOpen(_ arguments: [String]) -> Response {
         }
         return Response(success: true, activeApp: name, accessibilityTrusted: AXIsProcessTrusted())
 
+    case "default_browser":
+        // The app named like its .app file, matching the installed app names the agent lists.
+        guard let url = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!) else {
+            return .failure("No default browser is set")
+        }
+        return Response(success: true, activeApp: url.deletingPathExtension().lastPathComponent)
+
     case "snapshot":
         guard let app = NSWorkspace.shared.frontmostApplication else {
             return .failure("Could not determine the active app")

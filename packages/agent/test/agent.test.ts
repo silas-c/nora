@@ -8,6 +8,7 @@ test("text, voice and AAC inputs route to the same Canvas action", async () => {
     { source: "text", text: "  Please OPEN Canvas in Edge! " },
     { source: "voice", text: "open my schoolwork" },
     { source: "voice", text: "Open Canvas on Microsoft edge" },
+    { source: "voice", text: "open edge and canvas" },
     { source: "aac", intent: "OPEN_SCHOOL" },
     { source: "aac", intent: "OPEN_CANVAS" },
   ];
@@ -22,7 +23,7 @@ test("text, voice and AAC inputs route to the same Canvas action", async () => {
   }
 });
 
-test("text and voice use the configured Jev interpreter before any action", async () => {
+test("exact known requests act locally; unfamiliar text and voice use Jev before any action", async () => {
   const controller = new MockComputerController();
   const heard: string[] = [];
   const agent = createAgent(controller, {
@@ -31,10 +32,11 @@ test("text and voice use the configured Jev interpreter before any action", asyn
       return text === "Could you bring up Canvas for me?" ? "OPEN_CANVAS" : "UNKNOWN";
     },
   });
+  assert.equal((await agent.submit({ source: "text", text: "open canvas" })).success, true);
   assert.equal((await agent.submit({ source: "voice", text: "Could you bring up Canvas for me?" })).success, true);
   assert.equal((await agent.submit({ source: "text", text: "Please delete my files" })).success, false);
   assert.deepEqual(heard, ["Could you bring up Canvas for me?", "Please delete my files"]);
-  assert.deepEqual(controller.actions, [{ type: "open_url", url: "https://canvas.temple.edu", browser: "Microsoft Edge" }]);
+  assert.deepEqual(controller.actions, Array(2).fill({ type: "open_url", url: "https://canvas.temple.edu", browser: "Microsoft Edge" }));
 });
 
 test("unknown, negated, and compound requests never execute", async () => {

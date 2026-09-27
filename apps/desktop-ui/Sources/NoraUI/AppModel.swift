@@ -47,7 +47,10 @@ final class AppModel {
     let voice: VoiceInput
     let scanner: Scanner
 
-    var draft = ""
+    var draft = "" {
+        // Typing means the person chose the keyboard, so a recording started by summoning Nora stops.
+        didSet { if !draft.isEmpty, voice.isListening { voice.cancel() } }
+    }
     var requestedFocus: FocusTarget?
     var currentFocus: FocusTarget?
     private(set) var trace: [TraceEntry] = []
@@ -63,13 +66,17 @@ final class AppModel {
 
     @ObservationIgnored var openSettings: () -> Void = {}
     @ObservationIgnored var openTransparency: () -> Void = {}
+    @ObservationIgnored var onRequestStarted: () -> Void = {}
+    @ObservationIgnored var onPhaseChanged: () -> Void = {}
     @ObservationIgnored private var session: AgentSession?
     @ObservationIgnored private var context: RequestContext?
+    var currentRequestLabel: String? { context?.label }
     @ObservationIgnored private var dwellLocked: String?
     @ObservationIgnored private var dwellTask: Task<Void, Never>?
     @ObservationIgnored private var permissionPoll: Task<Void, Never>?
     @ObservationIgnored private var appInUse: NSRunningApplication?
     @ObservationIgnored private var appInUseObserver: NSObjectProtocol?
+    @ObservationIgnored private var permissionObserver: NSObjectProtocol?
     @ObservationIgnored private var traceCounter = 0
     @ObservationIgnored private var auxiliaryCounter = 0
     @ObservationIgnored private let preview: Bool
@@ -116,9 +123,25 @@ final class AppModel {
                                                          detail: error.localizedDescription, recovery: .restartAgent)))
         }
         speaker.prewarm()
+        voice.prewarm()
         if settings.scanning { scanner.start() }
         if mode == .live { refreshPermission() }
+        watchPermission()
         watchAppInUse()
+    }
+
+    /// macOS announces every change to the Accessibility list, including a switch flipped in System Settings.
+    /// The new state takes a moment to apply, so look again shortly after.
+    private func watchPermission() {
+        guard permissionObserver == nil else { return }
+        permissionObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.accessibility.api"), object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(500))
+                self?.refreshPermission()
+            }
+        }
     }
 
     /// Zoom shortcuts are delivered to the frontmost app. Remember the app the person was using
@@ -163,6 +186,10 @@ final class AppModel {
             NSWorkspace.shared.notificationCenter.removeObserver(appInUseObserver)
             self.appInUseObserver = nil
         }
+        if let permissionObserver {
+            DistributedNotificationCenter.default().removeObserver(permissionObserver)
+            self.permissionObserver = nil
+        }
         session?.onEvent = nil
         session?.stopAndWait()
         session = nil
@@ -187,6 +214,7 @@ final class AppModel {
             record(.received, message.requestId, Self.summary(message), line)
             if case .history(_, let entries) = message { history = entries }
             perform(interaction.receive(message))
+            onPhaseChanged()
         case .diagnostic(let line):
             record(.diagnostic, nil, line, line)
         case .unreadable(let line):
@@ -242,8 +270,24 @@ final class AppModel {
         if voice.isListening { announce("Listening.", urgent: false) }
     }
 
+    /// Summoning Nora with a double tap of Command starts listening, so a spoken request needs no button press.
+    /// There is no spoken “Listening.” cue: the microphone would hear it and treat it as the request.
+    func listenOnSummon() {
+        guard interaction.acceptsInput, interaction.pendingConfirmation == nil, !voice.isBusy else { return }
+        speaker.stop()
+        voice.toggle()
+    }
+
+    /// Putting Nora away stops a recording in progress; words already recorded still get transcribed and run.
+    func stopListening() {
+        if voice.isListening { voice.cancel() }
+    }
+
     private func submitVoice(_ transcript: String) {
         note("Heard “\(transcript)” using \(voice.lastEngine).")
+        if let milliseconds = voice.lastSpeechToTranscriptMs {
+            note("Speech handoff took \(milliseconds) ms after the last detected speech.")
+        }
         let context = RequestContext(modality: "voice", label: transcript, intent: IntentEstimator.intent(forText: transcript),
                                      noraActions: 1, noraOperators: InteractionCost.tileOperators)
         if let intent = AliasResolver.intent(for: transcript, aliases: settings.aliases) {
@@ -259,6 +303,7 @@ final class AppModel {
     func decide(approved: Bool) {
         let effects = interaction.decide(approved: approved)
         guard !effects.isEmpty else { return }
+        if approved { onRequestStarted() }
         context?.noraActions += 1
         context?.noraOperators += KLM.click
         perform(effects)
@@ -283,6 +328,7 @@ final class AppModel {
         guard !effects.isEmpty else { return false }
         handFocusBackIfZooming(context.intent)
         self.context = context
+        onRequestStarted()
         perform(effects)
         return true
     }

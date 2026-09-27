@@ -6,7 +6,8 @@ import { MockComputerController } from "./mock-controller.js";
 
 /** Synthetic Canvas state machine. It never launches apps or reads the desktop. */
 export class CanvasMockComputerController extends MockComputerController {
-  private stage: "dashboard" | "courses" | "login" | "other";
+  private stage: "dashboard" | "courses" | "course" | "login" | "other";
+  private course = "";
   private generation = 0;
   private latest?: ComputerState;
   private activeApp = "Microsoft Edge";
@@ -22,6 +23,7 @@ export class CanvasMockComputerController extends MockComputerController {
     state.activeApp = this.activeApp;
     if (this.stage === "courses") state.activeWindow = "Courses - Canvas";
     if (this.stage === "other") { state.activeWindow = "Mock browser"; state.elements = []; }
+    if (this.stage === "course") { state.activeWindow = this.course; state.elements = []; }
     this.generation++;
     state.snapshotGeneration = `mock-generation-${this.generation}`;
     state.elements.forEach((element, index) => { element.id = `mock-${this.generation}-${index + 1}`; });
@@ -46,7 +48,13 @@ export class CanvasMockComputerController extends MockComputerController {
       const target = this.latest?.elements.find(e => e.id === action.target);
       if (!target) return { success: false, error: "Mock target is stale. Take a new snapshot." };
       if (!target.enabled || !target.actions.includes("AXPress")) return { success: false, error: "Mock target cannot be pressed." };
-      if (this.stage !== "dashboard" || target.label !== "Courses") return { success: false, error: "This mock only simulates the dashboard Courses action." };
+      if (this.stage === "courses" && !["Courses", "All Courses"].includes(target.label ?? "")) {
+        this.stage = "course";
+        this.course = target.label ?? "";
+        this.latest = undefined;
+        return { success: true };
+      }
+      if (this.stage !== "dashboard" || target.label !== "Courses") return { success: false, error: "This mock only simulates dashboard Courses and course links." };
       this.stage = "courses";
       this.latest = undefined;
     }

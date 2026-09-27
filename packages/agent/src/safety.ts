@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { AgentEvent, AgentResult, ComputerAction, ComputerController, ComputerState, RiskLevel } from "../../shared/src/types.js";
 
-export type ActionEffect = "navigation" | "zoom" | "text_entry" | "submission" | "deletion" | "unknown";
+export type ActionEffect = "navigation" | "zoom" | "input" | "text_entry" | "submission" | "deletion" | "unknown";
 export interface ActionProposal {
   action: ComputerAction;
   effect?: ActionEffect;
@@ -10,6 +10,8 @@ export interface ActionProposal {
   /** Trusted state captured when a model selected this target; never accepted over transport. */
   context?: ComputerState;
 }
+
+const INPUT_KEYS = new Set(["CMD+L", "CMD+T", "TAB", "SHIFT+TAB", "ESCAPE", "UP", "DOWN", "LEFT", "RIGHT"]);
 
 export function classifyAction(action: ComputerAction, effect: ActionEffect = "unknown"): RiskLevel {
   if (effect === "deletion") return "destructive";
@@ -21,6 +23,13 @@ export function classifyAction(action: ComputerAction, effect: ActionEffect = "u
   }
   if (effect === "zoom" && action.type === "keypress" && ["+", "-"].includes(action.key)
     && action.modifiers?.length === 1 && action.modifiers[0] === "CMD") return "safe";
+  // One step of operating an app like a person: typing into a chosen field, clicking, scrolling, or a key that
+  // moves around. Return is only pressed inside typed text, and the caller asks first when that could commit something.
+  if (effect === "input") {
+    if (["click", "scroll"].includes(action.type)) return "safe";
+    if (action.type === "type_text" && action.target) return "safe";
+    if (action.type === "keypress" && INPUT_KEYS.has([...(action.modifiers ?? []), action.key].join("+").toUpperCase())) return "safe";
+  }
   return "sensitive";
 }
 

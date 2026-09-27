@@ -53,3 +53,64 @@ test("caller mutation cannot change a controller's valid click targets", async (
   assert.equal((await controller.execute({ type: "click", target: "made-up", snapshotGeneration })).success, false);
   assert.equal((await controller.execute({ type: "click", target: id, snapshotGeneration })).success, true);
 });
+
+test("Jev class requests open Canvas, then Courses, then only the chosen visible class", async () => {
+  const controller = new CanvasMockComputerController();
+  const offered: string[][] = [];
+  const request = "open edge and canvas and my bio class";
+  const agent = createAgent(controller, {
+    wait: async () => {},
+    resolveIntent: async () => "OPEN_CLASS",
+    chooseCourse: async (text, labels) => {
+      assert.equal(text, request);
+      offered.push(labels);
+      return labels.indexOf("BIOL 1111 Introductory Biology");
+    },
+  });
+  const result = await agent.submit({ source: "voice", text: request });
+  assert.deepEqual(result, { success: true, message: "BIOL 1111 Introductory Biology is open in Canvas." });
+  assert.deepEqual(offered, [["BIOL 1111 Introductory Biology", "CIS 1051 Introduction to Problem Solving"]]);
+  assert.deepEqual(controller.actions.map(a => a.type), ["open_url", "click", "click"]);
+  assert.equal((await controller.getState()).activeWindow, "BIOL 1111 Introductory Biology");
+  agent.dispose();
+});
+
+test("a redirect to sign-in after clicking a class is not reported as success", async () => {
+  const controller = new CanvasMockComputerController();
+  const computer = {
+    async getState() {
+      const state = await controller.getState();
+      return controller.actions.filter(action => action.type === "click").length < 2
+        ? state : { ...state, activeWindow: "Log in - Canvas", elements: [] };
+    },
+    execute: controller.execute.bind(controller),
+  };
+  const agent = createAgent(computer, {
+    wait: async () => {},
+    resolveIntent: async () => "OPEN_CLASS",
+    chooseCourse: async (_, labels) => labels.indexOf("BIOL 1111 Introductory Biology"),
+  });
+  const result = await agent.submit({ source: "text", text: "open my biology class" });
+  assert.equal(result.success, false);
+  assert.match("error" in result ? result.error : "", /could not be verified/);
+  agent.dispose();
+});
+
+test("class requests stop at Courses when no visible class clearly matches", async () => {
+  const controller = new CanvasMockComputerController();
+  const agent = createAgent(controller, { wait: async () => {}, resolveIntent: async () => "OPEN_CLASS", chooseCourse: async () => undefined });
+  const result = await agent.submit({ source: "text", text: "open my chemistry class" });
+  assert.ok(!result.success && !result.requiresConfirmation);
+  assert.match(result.error, /couldn’t tell which class.*BIOL 1111/);
+  assert.deepEqual(controller.actions.map(a => a.type), ["open_url", "click"]);
+  agent.dispose();
+});
+
+test("class requests without a course chooser never act", async () => {
+  const controller = new CanvasMockComputerController();
+  const agent = createAgent(controller, { resolveIntent: async () => "OPEN_CLASS" });
+  assert.equal((await agent.submit({ source: "voice", text: "open my bio class" })).success, false);
+  assert.equal((await agent.submit({ source: "aac", intent: "OPEN_CLASS" })).success, false);
+  assert.deepEqual(controller.actions, []);
+  agent.dispose();
+});

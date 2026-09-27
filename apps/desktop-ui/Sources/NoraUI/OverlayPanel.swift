@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// A floating panel that never activates Nora. The app the person is using stays frontmost,
-/// so keyboard actions such as zoom reach that app rather than Nora.
+/// A panel that never activates Nora. The app the person is using stays frontmost, so keyboard actions such as
+/// zoom reach that app rather than Nora. The main panel floats; Settings and the activity window are ordinary
+/// windows that other apps cover when the person clicks away.
 final class OverlayPanel: NSPanel {
     init(contentRect: NSRect, title: String, content: NSView, utility: Bool = false) {
         var style: NSWindow.StyleMask = [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel]
@@ -14,11 +15,11 @@ final class OverlayPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         isMovableByWindowBackground = true
-        isFloatingPanel = true
-        level = .floating
+        isFloatingPanel = !utility
+        level = utility ? .normal : .floating
         hidesOnDeactivate = false
         becomesKeyOnlyIfNeeded = true
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = utility ? [.moveToActiveSpace, .fullScreenAuxiliary] : [.canJoinAllSpaces, .fullScreenAuxiliary]
         isReleasedWhenClosed = false
         let backdrop = NSVisualEffectView(frame: NSRect(origin: .zero, size: contentRect.size))
         backdrop.material = .popover

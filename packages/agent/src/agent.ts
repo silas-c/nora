@@ -1,8 +1,9 @@
-import type { ActionResult, Agent, AgentEvent, AgentResult, ComputerController, UserInput } from "../../shared/src/types.js";
+import type { ActionResult, Agent, AgentEvent, AgentResult, ComputerAction, ComputerController, UserInput } from "../../shared/src/types.js";
 import { routeIntent } from "./router.js";
 import type { Intent } from "./router.js";
 import { skills, type Skill } from "./skills.js";
-import { navigateCourses, type NavigationOptions } from "./navigation.js";
+import { runSteps, type StepChooser } from "./step-agent.js";
+import { navigateClass, navigateCourses, type CourseChooser, type NavigationOptions } from "./navigation.js";
 import { ActionGate } from "./safety.js";
 import { ActionHistory } from "./history.js";
 
@@ -10,6 +11,12 @@ export interface AgentOptions extends Pick<NavigationOptions, "wait"> {
   /** Trusted test/embedding hook; never accepted in the JSON-lines protocol. */
   resolveSkill?: (input: UserInput) => Skill | undefined;
   resolveIntent?: (text: string, signal: AbortSignal) => Promise<Intent>;
+  /** Matches a spoken class name to one visible Canvas course; required for OPEN_CLASS. */
+  chooseCourse?: CourseChooser;
+  /** Chooses one step at a time, from what is on screen, for text and voice requests that match no built-in task. */
+  chooseStep?: StepChooser;
+  /** Receives each screen reading and chosen step of a step-by-step request, for the local run log. */
+  trace?: (entry: Record<string, unknown>) => void;
   /** Clock injection for expiration tests. Production uses Date.now. */
   now?: () => number;
 }
@@ -63,17 +70,35 @@ export function createAgent(computer: ComputerController, options: AgentOptions 
       if (busy) return occupied();
       if (gate.hasPending()) return { success: false, error: "Confirm or cancel the pending action first." };
       busy = true;
+      const stepByStep = input.source !== "aac" && !!options.chooseStep;
       try {
         emit({ type: "thinking" });
-        const intent = input.source === "aac" || !options.resolveIntent
-          ? routeIntent(input)
-          : await options.resolveIntent(input.text, lifecycle.signal);
+        let intent: Intent;
+        try {
+          const local = routeIntent(input);
+          intent = input.source === "aac" || local !== "UNKNOWN" || !options.resolveIntent
+            ? local
+            : await options.resolveIntent(input.text, lifecycle.signal);
+        } catch (error) {
+          // Jev being unavailable should not block a request Nora can still work through step by step.
+          if (!stepByStep) throw error;
+          intent = "UNKNOWN";
+        }
+        const navigate = async (action: ComputerAction): Promise<ActionResult> => {
+          const result = await gate.run({ action, effect: "navigation", actingMessage: "", doneMessage: "Navigation action accepted." });
+          if (result.success) return { success: true };
+          return { success: false, error: result.requiresConfirmation ? "Navigation requires confirmation." : result.error };
+        };
         if (intent === "OPEN_COURSES") {
-          return finish(await navigateCourses(recordedComputer, async action => {
-            const result = await gate.run({ action, effect: "navigation", actingMessage: "", doneMessage: "Navigation action accepted." });
-            if (result.success) return { success: true };
-            return { success: false, error: result.requiresConfirmation ? "Navigation requires confirmation." : result.error } satisfies ActionResult;
-          }, emit, lifecycle.signal, options));
+          return finish(await navigateCourses(recordedComputer, navigate, emit, lifecycle.signal, options));
+        }
+        if (intent === "OPEN_CLASS") {
+          if (input.source === "aac" || !options.chooseCourse) return fail("Opening a class by name needs Jev. Try “Open Canvas and go to Courses”.");
+          return finish(await navigateClass(recordedComputer, navigate, emit, lifecycle.signal, input.text, options.chooseCourse, options));
+        }
+        if (intent === "UNKNOWN" && stepByStep) {
+          return finish(await runSteps(input.text, recordedComputer, options.chooseStep!, proposal => gate.run(proposal), emit,
+            lifecycle.signal, { ...(options.wait ? { wait: options.wait } : {}), ...(options.trace ? { trace: options.trace } : {}) }));
         }
         const skill = intent === "UNKNOWN" ? options.resolveSkill?.(input) : skills[intent];
         if (!skill) return fail('Try “Open Canvas”, “Show me dog photos”, or “Make text bigger”.');

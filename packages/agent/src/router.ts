@@ -1,6 +1,6 @@
 import type { UserInput } from "../../shared/src/types.js";
 
-export type Intent = "OPEN_CANVAS" | "OPEN_COURSES" | "OPEN_DOG_PHOTOS" | "OPEN_PHOTOS" | "OPEN_EDGE" | "OPEN_FINDER" | "ZOOM_IN" | "ZOOM_OUT" | "UNKNOWN";
+export type Intent = "OPEN_CANVAS" | "OPEN_COURSES" | "OPEN_CLASS" | "OPEN_DOG_PHOTOS" | "OPEN_PHOTOS" | "OPEN_EDGE" | "OPEN_FINDER" | "ZOOM_IN" | "ZOOM_OUT" | "UNKNOWN";
 
 export function routeIntent(input: UserInput): Intent {
   if (input.source === "aac") {
@@ -17,6 +17,7 @@ export function routeIntent(input: UserInput): Intent {
   const request = text.replace(/^please /, "").replace(/ please$/, "");
   if (/^open canvas and go to (?:my )?courses$/.test(request)) return "OPEN_COURSES";
   if (/^open (?:canvas|(?:my )?school(?:work| thing)?)(?: (?:in|on) (?:microsoft )?edge)?$/.test(request)) return "OPEN_CANVAS";
+  if (/^open (?:microsoft )?edge and (?:open )?canvas$/.test(request)) return "OPEN_CANVAS";
   if (/^(?:show(?: me)?|open|find) dog (?:photos|pictures)(?: on google)?$/.test(request)) return "OPEN_DOG_PHOTOS";
   if (/^open photos$/.test(request)) return "OPEN_PHOTOS";
   if (/^open (?:microsoft )?edge$/.test(request)) return "OPEN_EDGE";

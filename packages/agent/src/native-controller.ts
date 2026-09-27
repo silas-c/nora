@@ -3,7 +3,7 @@ import type { ActionResult, ComputerAction, ComputerController, ComputerState } 
 
 type Reply = Record<string, unknown> & { success: boolean };
 type Pending = { resolve: (reply: Reply) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
-type HelperRequest = ComputerAction | { type: "snapshot" } | (ComputerAction & {
+type HelperRequest = ComputerAction | { type: "snapshot" } | { type: "default_browser" } | (ComputerAction & {
   expectedApp: string;
   expectedWindow?: string;
   expectedRole: string;
@@ -55,6 +55,14 @@ export class NativeComputerController implements ComputerController {
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
+  }
+
+  /** The app that opens web addresses, so “my browser” means the person's own browser. */
+  async defaultBrowser(): Promise<string | undefined> {
+    try {
+      const reply = await this.request({ type: "default_browser" });
+      return reply.success && typeof reply.activeApp === "string" ? reply.activeApp : undefined;
+    } catch { return undefined; }
   }
 
   async executeValidated(action: ComputerAction, expected: ComputerState): Promise<ActionResult> {

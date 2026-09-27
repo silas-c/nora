@@ -3,6 +3,9 @@
 # With only the Command Line Tools installed (no Xcode), SwiftPM does not add Swift Testing's
 # search paths, and some installs ship a _Testing_Foundation overlay without its module files.
 set -euo pipefail
+if [[ -z "${DEVELOPER_DIR:-}" && "$(xcode-select -p 2>/dev/null || true)" == *CommandLineTools* && -d /Applications/Xcode.app/Contents/Developer ]]; then
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
 cd "$(dirname "$0")/.."
 
 flags=()

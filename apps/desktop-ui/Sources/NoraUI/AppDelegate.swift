@@ -13,9 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var transparencyPanel: OverlayPanel?
     private var settingsPanel: OverlayPanel?
     private var statusItem: NSStatusItem?
-    private var hotKey: HotKey?
+    private var hideKey: HotKey?
+    private var doubleTap: CommandDoubleTap?
     private var keyMonitor: Any?
+    private var clickOutsideMonitor: Any?
     private var displayObserver: NSObjectProtocol?
+    private var closeObserver: NSObjectProtocol?
+    private var notchDismissTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -33,20 +37,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.model = model
         model.openSettings = { [weak self] in self?.showSettings() }
         model.openTransparency = { [weak self] in self?.showTransparency() }
+        model.onRequestStarted = { [weak self] in self?.collapseToNotch() }
+        model.onPhaseChanged = { [weak self] in self?.updateTaskPresentation() }
         settings.onScaleChange = { [weak self] scale in self?.resizePanel(for: scale) }
 
         installMainMenu()
         installStatusItem()
-        showMainPanel(model)
-        showVoiceIndicator(model.voice)
+        showMainPanel(model, initiallyVisible: arguments.contains("--self-test"))
+        showVoiceIndicator(model)
         displayObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.placeVoiceIndicator() }
         }
         installKeyMonitor()
-        hotKey = HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak self] in self?.summon() }
-        if hotKey == nil { model.note("Option-Space is taken by another app, so the Nora shortcut is off.") }
+        installClickOutsideMonitor()
+        doubleTap = CommandDoubleTap { [weak self] in self?.toggle() }
+        claimHideKey(panel?.isVisible == true)
         model.start()
         if arguments.contains("--diagnose") { model.runPermissionCheck(saveReport: true) }
         if let index = arguments.firstIndex(of: "--self-test"), let panel {
@@ -62,7 +69,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        notchDismissTask?.cancel()
         if let displayObserver { NotificationCenter.default.removeObserver(displayObserver) }
+        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         model?.shutdown()
     }
 
@@ -72,22 +81,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Windows
 
-    private func showMainPanel(_ model: AppModel) {
+    private func showMainPanel(_ model: AppModel, initiallyVisible: Bool) {
         let host = FirstClickHostingView(rootView: RootView(model: model))
         host.sizingOptions = [.minSize]
         let size = NSSize(width: Self.baseSize.width * CGFloat(model.settings.scale), height: Self.baseSize.height)
         let panel = OverlayPanel(contentRect: NSRect(origin: .zero, size: size), title: "Nora", content: host)
         if !panel.setFrameUsingName("NoraGlassPanel") { place(panel) }
         panel.setFrameAutosaveName("NoraGlassPanel")
-        panel.orderFrontRegardless()
+        if initiallyVisible { panel.orderFrontRegardless() }
         self.panel = panel
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let closing = note.object as? NSWindow
+            Task { @MainActor in
+                guard let self, let closing, self.nora.contains(closing) else { return }
+                if !self.nora.contains(where: { $0 !== closing && $0.isVisible }) { self.claimHideKey(false) }
+            }
+        }
     }
 
-    private func showVoiceIndicator(_ voice: VoiceInput) {
-        let panel = VoiceIndicatorPanel(voice: voice)
+    /// Nora's own windows, the ones Control-H hides.
+    private var nora: [NSWindow] { [panel, voiceIndicator, transparencyPanel, settingsPanel].compactMap { $0 } }
+
+    private func showVoiceIndicator(_ model: AppModel) {
+        let panel = VoiceIndicatorPanel(model: model,
+                                        expand: { [weak self] in self?.summon() },
+                                        dismiss: { [weak self] in self?.hidePanel() })
         voiceIndicator = panel
         placeVoiceIndicator()
-        panel.orderFrontRegardless()
     }
 
     private func placeVoiceIndicator() {
@@ -127,6 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         model.refreshHistory()
         transparencyPanel?.orderFrontRegardless()
+        claimHideKey(true)
     }
 
     private func showSettings() {
@@ -139,13 +162,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsPanel = panel
         }
         settingsPanel?.orderFrontRegardless()
+        claimHideKey(true)
     }
 
-    /// Brings Nora forward with keyboard focus on the first tile, without activating the app.
+    /// Opens the full panel with keyboard focus, without activating the app.
     private func summon() {
         guard let panel, let model else { return }
+        notchDismissTask?.cancel()
+        voiceIndicator?.orderOut(nil)
         panel.makeKeyAndOrderFront(nil)
+        claimHideKey(true)
         model.requestedFocus = model.interaction.pendingConfirmation != nil ? .confirmCancel : .tile(TileCatalog.home[0].id)
+    }
+
+    private func collapseToNotch() {
+        notchDismissTask?.cancel()
+        panel?.orderOut(nil)
+        placeVoiceIndicator()
+        voiceIndicator?.orderFrontRegardless()
+        claimHideKey(true)
+    }
+
+    private func updateTaskPresentation() {
+        guard let model else { return }
+        if model.interaction.pendingConfirmation != nil {
+            summon()
+            return
+        }
+        switch model.interaction.phase {
+        case .done, .failed, .disconnected:
+            notchDismissTask?.cancel()
+            notchDismissTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(6))
+                guard !Task.isCancelled, let self, let model = self.model,
+                      !model.interaction.isBusy, !model.voice.isBusy else { return }
+                self.voiceIndicator?.orderOut(nil)
+                if !self.nora.contains(where: \.isVisible) { self.claimHideKey(false) }
+            }
+        default:
+            break
+        }
+    }
+
+    /// Control-H puts every Nora window away. A click elsewhere only puts the main panel away.
+    private func hidePanel(everything: Bool = true) {
+        if everything {
+            notchDismissTask?.cancel()
+            for window in nora { window.orderOut(nil) }
+            model?.stopListening()
+        } else if panel?.isVisible == true {
+            panel?.orderOut(nil)
+            if model?.voice.isBusy == true || model?.interaction.isBusy == true { collapseToNotch() }
+        }
+        if !nora.contains(where: \.isVisible) { claimHideKey(false) }
+    }
+
+    /// Double-tapping Command shows the listening notch, or dismisses it.
+    private func toggle() {
+        if voiceIndicator?.isVisible == true { hidePanel() }
+        else {
+            collapseToNotch()
+            model?.listenOnSummon()
+        }
+    }
+
+    /// Control-H hides Nora from any app, so Nora only takes it from other apps while one of its windows is on screen.
+    private func claimHideKey(_ claim: Bool) {
+        if claim, hideKey == nil {
+            hideKey = HotKey(keyCode: kVK_ANSI_H, modifiers: controlKey) { [weak self] in self?.hidePanel() }
+            if hideKey == nil { model?.note("Another app uses Control-H, so it can't hide Nora. Double-tap Command instead.") }
+        } else if !claim {
+            hideKey?.unregister()
+            hideKey = nil
+        }
     }
 
     // MARK: - Menus and keys
@@ -156,6 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu(title: "Nora")
         appMenu.addItem(item("Settings…", #selector(openSettingsAction), ","))
         appMenu.addItem(item("What Nora Is Doing", #selector(openTransparencyAction), "t"))
+        appMenu.addItem(item("Hide Nora", #selector(hidePanelAction), "h"))
         appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(title: "Quit Nora", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         appItem.submenu = appMenu
@@ -180,7 +270,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = NSImage(systemSymbolName: "hand.tap.fill", accessibilityDescription: "Nora")
         let menu = NSMenu()
-        menu.addItem(item("Show Nora (Option-Space)", #selector(summonAction), ""))
+        menu.addItem(item("Open Nora's full panel", #selector(summonAction), ""))
+        let hide = item("Hide Nora", #selector(hidePanelAction), "h")
+        hide.keyEquivalentModifierMask = .control
+        menu.addItem(hide)
         menu.addItem(item("What Nora Is Doing", #selector(openTransparencyAction), ""))
         menu.addItem(item("Settings…", #selector(openSettingsAction), ""))
         menu.addItem(.separator())
@@ -198,6 +291,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openSettingsAction() { showSettings() }
     @objc private func openTransparencyAction() { showTransparency() }
     @objc private func summonAction() { summon() }
+    @objc private func hidePanelAction() { hidePanel() }
 
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -205,6 +299,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let used = model.handleKey(characters: event.charactersIgnoringModifiers ?? "", keyCode: event.keyCode,
                                        modifiers: event.modifierFlags, editingText: panel.firstResponder is NSTextView)
             return used ? nil : event
+        }
+    }
+
+    /// A click in any other app puts Nora away, like Spotlight. macOS only reports clicks outside Nora's own windows
+    /// here, and Nora presses buttons in other apps through Accessibility actions, not the mouse, so its own work never hides it.
+    private func installClickOutsideMonitor() {
+        clickOutsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            self?.hidePanel(everything: false)
         }
     }
 }

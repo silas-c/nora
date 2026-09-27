@@ -9,13 +9,21 @@ phrase router.
 | Text / voice transcript | AAC intent | Action |
 | --- | --- | --- |
 | Open Canvas and go to Courses | `OPEN_COURSES` | Open Canvas, inspect controls, and verify Courses |
-| Open Canvas / Open my schoolwork | `OPEN_SCHOOL`, `OPEN_CANVAS` | Open Temple Canvas in Edge |
+| Open Edge and Canvas and my biology class (Jev only) | — | Open Courses, let Jev pick the one matching visible class link, click it, and verify the page changed |
+| Open Canvas / Open my schoolwork / Open Edge and Canvas | `OPEN_SCHOOL`, `OPEN_CANVAS` | Open Temple Canvas in Edge |
 | Show me dog photos / Open dog pictures | `OPEN_DOG_PHOTOS` | Open a public Google Images search in Edge |
 | Open Photos | `OPEN_PHOTOS` | Launch Photos |
 | Open Edge / Open Microsoft Edge | `OPEN_EDGE`, `OPEN_INTERNET` | Launch Edge |
 | Open Finder | `OPEN_FINDER` | Launch Finder |
+| Anything else, such as check Hacker News in Edge or open GitHub Copilot and pick a project (needs `DEEPSEEK_API_KEY`) | — | `step-agent.ts`: read the front window, let DeepSeek pick one step (open app, click, type into a field, key, scroll), take it through the gate, read the screen again; done only when the screen shows it, at most 12 steps |
 | Make text bigger / Zoom in | `ZOOM_IN` | Send Cmd + Plus to the active app |
 | Make text smaller / Zoom out | `ZOOM_OUT` | Send Cmd + Minus to the active app |
+
+Class requests never type or guess a class name. After Courses opens, the agent
+waits until the Canvas Courses tray stops changing. Jev then chooses one of the
+visible class links or `none`, and anything below 0.7 confidence counts as `none`.
+Navigation chrome and links with data-changing words are never offered. When no
+class matches clearly, Nora stops at Courses and names some of the visible classes.
 
 App launch is limited to these known names. Zoom requires Accessibility permission
 and depends on the active app supporting the shortcut. A native command launched
@@ -24,11 +32,14 @@ be that terminal. The future overlay must restore focus to the intended app.
 
 ## Run from the repository root
 
-Use Node.js 22 or newer with npm, then:
+Use Node.js 22 or newer with npm, plus [Bun](https://bun.sh) for the fast test runner. Then:
 
 ```sh
 npm ci
-npm test
+bun test packages/agent/test/ # runs TypeScript directly
+bun run check     # typecheck + tests concurrently, ~1.5s; the gate to use before committing
+bun run typecheck # tsc --noEmit alone; bun test does not typecheck
+npm run test:node # Node-only fallback: builds dist, then node --test
 npm run agent -- "Open Canvas"
 npm run agent -- --aac OPEN_SCHOOL
 npm run agent -- "Show me dog photos"

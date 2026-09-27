@@ -16,7 +16,7 @@ struct StatusCard: View {
                 VStack(alignment: .leading, spacing: 5 * scale) {
                     Text(status.title == "Ready" ? "What would you like to do?" : status.title)
                         .font(.nora(19, .semibold, scale: scale))
-                    Text(status.title == "Ready" ? "Press to speak, or type a command below." : status.message)
+                    Text(status.title == "Ready" ? "Choose an action or type a request below." : status.message)
                         .font(.nora(14, scale: scale))
                         .foregroundStyle(Color.primary.opacity(0.72))
                         .fixedSize(horizontal: false, vertical: true)

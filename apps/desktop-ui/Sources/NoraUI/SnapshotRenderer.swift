@@ -101,12 +101,17 @@ enum SnapshotRenderer {
         if let lastModel {
             write(SettingsView(model: lastModel), size: NSSize(width: 620, height: 1100), dark: false,
                   to: directory.appendingPathComponent("12-settings.png"))
-            let indicator = VoiceIndicatorView(voice: lastModel.voice)
+            let notchModel = AppModel(mode: .mock, settings: Settings(defaults: nil), preview: true)
+            notchModel.start()
+            notchModel.simulate(.aac("OPEN_SCHOOL")) { id in
+                [.event(requestId: id, .acting("Opening Canvas in Microsoft Edge…"))]
+            }
+            let indicator = VoiceIndicatorView(model: notchModel, expand: {}, dismiss: {})
                 .padding(18)
                 .background(Color(nsColor: .windowBackgroundColor))
-            write(indicator, size: NSSize(width: 388, height: 82), dark: false,
+            write(indicator, size: NSSize(width: 476, height: 108), dark: false,
                   to: directory.appendingPathComponent("13-voice-indicator.png"))
-            write(indicator, size: NSSize(width: 388, height: 82), dark: true,
+            write(indicator, size: NSSize(width: 476, height: 108), dark: true,
                   to: directory.appendingPathComponent("14-voice-indicator-dark.png"))
         }
     }

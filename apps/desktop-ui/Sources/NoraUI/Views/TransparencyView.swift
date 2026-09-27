@@ -17,7 +17,7 @@ struct TransparencyView: View {
                 section("Right now") {
                     row("Mode", model.mode == .mock ? "Practice (synthetic Canvas controller, nothing on this Mac changes)" : "Live (Swift helper controls this Mac)")
                     row("Agent", model.agentPID.map { "Running, process \($0)" } ?? "Not running")
-                    row("Routing", "Deterministic skills. No AI model is called for these requests.")
+                    row("Routing", "Exact built-in phrases run locally; other requests use Jev and DeepSeek when configured.")
                     row("Spoken feedback", model.settings.spokenFeedback ? model.speaker.lastEngine.rawValue : "Off")
                     row("Offline phrases", "\(model.speaker.cachedCount) of \(model.speaker.knownPhraseCount) ready")
                     if !model.voice.lastEngine.isEmpty { row("Speech recognition", model.voice.lastEngine) }

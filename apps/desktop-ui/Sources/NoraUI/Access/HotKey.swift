@@ -2,6 +2,7 @@ import Carbon
 import Foundation
 
 /// A system-wide shortcut through Carbon, which needs no Accessibility or Input Monitoring permission.
+/// While registered, the shortcut reaches Nora instead of the app in front. One shortcut at a time.
 @MainActor
 final class HotKey {
     private static var action: (() -> Void)?
@@ -18,7 +19,17 @@ final class HotKey {
         guard installed == noErr else { return nil }
         let identifier = EventHotKeyID(signature: OSType(0x4E4F5241), id: 1)
         guard RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), identifier, GetApplicationEventTarget(), 0, &reference) == noErr else {
+            unregister()
             return nil
         }
+    }
+
+    /// Gives the shortcut back to other apps.
+    func unregister() {
+        if let reference { UnregisterEventHotKey(reference) }
+        if let handler { RemoveEventHandler(handler) }
+        reference = nil
+        handler = nil
+        Self.action = nil
     }
 }
