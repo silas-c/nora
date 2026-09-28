@@ -152,12 +152,7 @@ func scroll(_ direction: String, amount: Int) throws {
         throw ControlError(message: "Could not create scroll event")
     }
     let appElement = AXUIElementCreateApplication(app.processIdentifier)
-    var windowValue: CFTypeRef?
-    guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowValue) == .success,
-          let windowValue, CFGetTypeID(windowValue) == AXUIElementGetTypeID() else {
-        throw SnapshotError.noWindow
-    }
-    let window = windowValue as! AXUIElement
+    guard let window = frontWindow(of: appElement) else { throw SnapshotError.noWindow }
     var positionValue: CFTypeRef?
     var sizeValue: CFTypeRef?
     guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionValue) == .success,

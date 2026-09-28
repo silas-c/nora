@@ -106,6 +106,9 @@ export function createDeepSeekStepChooser(options: DeepSeekOptions & { apps?: re
 
 /** Turns one chosen step into an action for the safety gate. Which steps ask first is decided here, not by the model. */
 function proposal(step: Step, state: ComputerState, controls: ScreenControl[]): ActionProposal | string {
+  if (!state.activeWindow && !state.elements.length && (step.step === "key" || step.step === "scroll")) {
+    return "No app window is open yet.";
+  }
   const generation = state.snapshotGeneration ? { snapshotGeneration: state.snapshotGeneration } : {};
   const control = "id" in step ? controls.find(candidate => candidate.id === step.id) : undefined;
   switch (step.step) {

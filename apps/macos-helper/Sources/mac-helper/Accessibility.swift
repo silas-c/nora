@@ -68,7 +68,17 @@ final class SnapshotReader {
 
         let deadline = Date().addingTimeInterval(isEdge ? 3 : 0)
         while true {
-            let (snapshot, hasWebArea) = try readOnce(app, appElement)
+            let snapshot: ComputerSnapshot
+            let hasWebArea: Bool
+            do {
+                (snapshot, hasWebArea) = try readOnce(app, appElement)
+            } catch SnapshotError.noWindow {
+                // A foreground app can have no window (for example, Finder on the desktop).
+                // There are no controls to act on, but the agent can still open an app or wait.
+                return ComputerSnapshot(snapshotGeneration: UUID().uuidString,
+                                        activeApp: app.localizedName ?? "Unknown", activeWindow: nil,
+                                        elements: [], truncated: false)
+            }
             if !isEdge || hasWebArea {
                 let generation = UUID().uuidString
                 snapshotPID = app.processIdentifier
@@ -142,16 +152,6 @@ final class SnapshotReader {
         // A one-line field keeps its old text, such as the current address; select it so typing replaces it.
         let replaceExisting = role != "AXTextArea"
         try typeKeystrokes(text, selectingAll: replaceExisting, to: app.processIdentifier)
-    }
-
-    /// The window a person is working in. While another app's panel, such as Nora's, has keyboard focus, the app
-    /// reports no focused or main window, so fall back to its frontmost window that isn't minimized.
-    private func frontWindow(of app: AXUIElement) -> AXUIElement? {
-        if let window: AXUIElement = attribute(app, kAXFocusedWindowAttribute) ?? attribute(app, kAXMainWindowAttribute) {
-            return window
-        }
-        let windows: [AXUIElement] = attribute(app, kAXWindowsAttribute) ?? []
-        return windows.first { (attribute($0, kAXMinimizedAttribute) as Bool?) != true }
     }
 
     private func consumeSnapshot() {
@@ -264,6 +264,15 @@ final class SnapshotReader {
             truncated: truncated || index < queue.count
         ), hasWebArea)
     }
+}
+
+/// Nora can hold keyboard focus while another app remains frontmost. Use that app's visible window then.
+func frontWindow(of app: AXUIElement) -> AXUIElement? {
+    if let window: AXUIElement = attribute(app, kAXFocusedWindowAttribute) ?? attribute(app, kAXMainWindowAttribute) {
+        return window
+    }
+    let windows: [AXUIElement] = attribute(app, kAXWindowsAttribute) ?? []
+    return windows.first { (attribute($0, kAXMinimizedAttribute) as Bool?) != true }
 }
 
 private func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {

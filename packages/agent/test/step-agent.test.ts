@@ -196,6 +196,22 @@ test("a window that isn't ready is read again, and Jev's known tasks never reach
   assert.equal(asked, 1);
 });
 
+test("a windowless foreground app cannot receive a key or scroll before opening a window", async () => {
+  const mac = new ScriptedMac([{ activeApp: "Finder", elements: [] }, edgeOnYouTube]);
+  const agent = createAgent(mac, {
+    wait: async () => {},
+    resolveIntent: async () => "UNKNOWN",
+    chooseStep: scripted([
+      { step: "key", key: "cmd+t" },
+      { step: "scroll", direction: "down" },
+      { step: "open_app", app: "Microsoft Edge" },
+      { step: "done", summary: "Edge is open." },
+    ]),
+  });
+  assert.deepEqual(await agent.submit({ source: "text", text: "look at music in Edge" }), { success: true, message: "Edge is open." });
+  assert.deepEqual(mac.actions, [{ type: "launch_app", app: "Microsoft Edge" }]);
+});
+
 test("the chooser asks deepseek-flash for one JSON step, with reasoning off or low", async () => {
   let sent: Record<string, unknown> = {};
   const choose = createDeepSeekStepChooser({

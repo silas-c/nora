@@ -144,8 +144,7 @@ final class AppModel {
         }
     }
 
-    /// Zoom shortcuts are delivered to the frontmost app. Remember the app the person was using
-    /// and hand it back before a zoom, in case Nora itself is in front.
+    /// Remember the app the person was using so requests can act there after Nora takes focus.
     private func watchAppInUse() {
         guard appInUseObserver == nil else { return }
         noteAppInUse()
@@ -162,9 +161,9 @@ final class AppModel {
         appInUse = app
     }
 
-    private func handFocusBackIfZooming(_ intent: String?) {
-        guard intent == "ZOOM_IN" || intent == "ZOOM_OUT" else { return }
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier,
+    private func handFocusBack() {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+                || NSApp.keyWindow != nil,
               let appInUse else { return }
         appInUse.activate()
     }
@@ -303,7 +302,10 @@ final class AppModel {
     func decide(approved: Bool) {
         let effects = interaction.decide(approved: approved)
         guard !effects.isEmpty else { return }
-        if approved { onRequestStarted() }
+        if approved {
+            handFocusBack()
+            onRequestStarted()
+        }
         context?.noraActions += 1
         context?.noraOperators += KLM.click
         perform(effects)
@@ -326,7 +328,7 @@ final class AppModel {
         voice.clearFailure()
         let effects = interaction.submit(input)
         guard !effects.isEmpty else { return false }
-        handFocusBackIfZooming(context.intent)
+        handFocusBack()
         self.context = context
         onRequestStarted()
         perform(effects)
